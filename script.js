@@ -9,8 +9,10 @@
     { title: 'Forum Lviv', subtitle: 'Pid Dubom St, Lviv' },
     { title: 'Victoria Gardens', subtitle: 'Stryiska St, Lviv' },
     { title: 'Lviv Railway Station', subtitle: 'Chernivetska St, Lviv' },
-    { title: 'Lviv Danylo Halytskyi International Airport', subtitle: 'Lyubinska St, Lviv' },
-    { title: 'Stryiskyi Park', subtitle: 'Stryiska St, Lviv' }
+    { title: 'Lviv Airport', subtitle: 'Lyubinska St, Lviv' },
+    { title: 'Stryiskyi Park', subtitle: 'Stryiska St, Lviv' },
+    { title: 'Rynok Square', subtitle: 'Old Town, Lviv' },
+    { title: 'Lviv Opera House', subtitle: 'Svobody Ave, Lviv' }
   ];
 
   // Real approximate coordinates for Lviv landmarks
@@ -19,8 +21,10 @@
     'Forum Lviv': [49.8494, 24.0224],
     'Victoria Gardens': [49.8075, 23.9783],
     'Lviv Railway Station': [49.8392, 23.9945],
-    'Lviv Danylo Halytskyi International Airport': [49.8125, 23.9561],
-    'Stryiskyi Park': [49.8226, 24.0234]
+    'Lviv Airport': [49.8125, 23.9561],
+    'Stryiskyi Park': [49.8226, 24.0234],
+    'Rynok Square': [49.84225, 24.03215],
+    'Lviv Opera House': [49.84415, 24.02658]
   };
 
   // ---- Element refs ----
@@ -227,8 +231,8 @@
         '<span class="recent-row__title"></span>' +
         '<span class="recent-row__subtitle"></span>' +
         '</span>';
-      row.querySelector('.recent-row__title').textContent = place.title;
-      row.querySelector('.recent-row__subtitle').textContent = place.subtitle;
+      row.querySelector('.recent-row__title').textContent = place.custom ? 'Use this destination' : place.title;
+      row.querySelector('.recent-row__subtitle').textContent = place.custom ? place.title : place.subtitle;
       if (place.custom) row.classList.add('recent-row--custom');
       row.addEventListener('click', function () { onSelect(place); });
       container.appendChild(row);
@@ -337,7 +341,7 @@
     tap: true
   }).setView(LVIV_CENTER, 14);
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
     subdomains: 'abcd',
     maxZoom: 19
@@ -353,50 +357,27 @@
 
   var destMarker = null;
   var routeLine = null;
+  var routeRequestToken = 0;
 
-  function quadraticCurve(p0, p1, ctrl, steps) {
-    var pts = [];
-    for (var i = 0; i <= steps; i++) {
-      var t = i / steps;
-      var lat = (1 - t) * (1 - t) * p0[0] + 2 * (1 - t) * t * ctrl[0] + t * t * p1[0];
-      var lng = (1 - t) * (1 - t) * p0[1] + 2 * (1 - t) * t * ctrl[1] + t * t * p1[1];
-      pts.push([lat, lng]);
-    }
-    return pts;
+  function fallbackStreetRoute(start, dest) {
+    var dLat = dest[0] - start[0];
+    var dLng = dest[1] - start[1];
+    return [
+      start,
+      [start[0] + dLat * 0.10, start[1] + dLng * 0.02],
+      [start[0] + dLat * 0.18, start[1] + dLng * 0.20],
+      [start[0] + dLat * 0.38, start[1] + dLng * 0.24],
+      [start[0] + dLat * 0.44, start[1] + dLng * 0.48],
+      [start[0] + dLat * 0.66, start[1] + dLng * 0.55],
+      [start[0] + dLat * 0.74, start[1] + dLng * 0.80],
+      [start[0] + dLat * 0.92, start[1] + dLng * 0.88],
+      dest
+    ];
   }
 
-  function setDestinationOnMap(title, coordinates) {
-    var dest = coordinates || PLACE_COORDS[title];
-    if (!dest) return;
-
-    if (destMarker) map.removeLayer(destMarker);
-    if (routeLine) map.removeLayer(routeLine);
-
-    var destIcon = L.divIcon({
-      className: 'viode-dest-marker',
-      html: '<svg class="viode-dest-pin" viewBox="0 0 22 26" xmlns="http://www.w3.org/2000/svg"><path d="M11,0 C17,0 22,4.7 22,10.5 C22,18 11,26 11,26 C11,26 0,18 0,10.5 C0,4.7 5,0 11,0Z" fill="#1D1D27"/><circle cx="11" cy="10.5" r="4.5" fill="#FFFFFF"/></svg>',
-      iconSize: [22, 26],
-      iconAnchor: [11, 26]
-    });
-    destMarker = L.marker(dest, { icon: destIcon, keyboard: false, interactive: false }).addTo(map);
-
-    // Believable curved route (no external routing service) — a gentle
-    // arc between pickup and destination, not a literal street path.
-    var mid = [(LVIV_CENTER[0] + dest[0]) / 2, (LVIV_CENTER[1] + dest[1]) / 2];
-    var dx = dest[0] - LVIV_CENTER[0];
-    var dy = dest[1] - LVIV_CENTER[1];
-    var ctrl = [mid[0] - dy * 0.35, mid[1] + dx * 0.35];
-    var curvePoints = quadraticCurve(LVIV_CENTER, dest, ctrl, 32);
-
-    routeLine = L.polyline(curvePoints, {
-      color: '#6C63FF',
-      weight: 3.5,
-      opacity: 0.88,
-      lineCap: 'round'
-    }).addTo(map);
-
+  function animateRoute(line) {
     requestAnimationFrame(function () {
-      var pathEl = routeLine.getElement();
+      var pathEl = line.getElement();
       if (pathEl && pathEl.getTotalLength) {
         var length = pathEl.getTotalLength();
         pathEl.style.strokeDasharray = length;
@@ -406,6 +387,64 @@
         pathEl.style.strokeDashoffset = '0';
       }
     });
+  }
+
+  function setRoutePoints(points, shouldAnimate) {
+    if (routeLine) map.removeLayer(routeLine);
+    routeLine = L.polyline(points, {
+      color: '#6C63FF',
+      weight: 4,
+      opacity: 0.9,
+      lineCap: 'round',
+      lineJoin: 'round',
+      smoothFactor: 0.5
+    }).addTo(map);
+    if (shouldAnimate) animateRoute(routeLine);
+  }
+
+  function requestStreetRoute(dest, token) {
+    var url = 'https://router.project-osrm.org/route/v1/driving/' +
+      LVIV_CENTER[1] + ',' + LVIV_CENTER[0] + ';' +
+      dest[1] + ',' + dest[0] +
+      '?overview=full&geometries=geojson';
+
+    fetch(url)
+      .then(function (response) {
+        if (!response.ok) throw new Error('Routing unavailable');
+        return response.json();
+      })
+      .then(function (data) {
+        if (token !== routeRequestToken || !data.routes || !data.routes.length) return;
+        var coordinates = data.routes[0].geometry.coordinates.map(function (point) {
+          return [point[1], point[0]];
+        });
+        if (coordinates.length > 2) setRoutePoints(coordinates, false);
+      })
+      .catch(function () {
+        // The local multi-bend route remains visible if public routing fails.
+      });
+  }
+
+  function setDestinationOnMap(title, coordinates) {
+    var dest = coordinates || PLACE_COORDS[title];
+    if (!dest) return;
+
+    if (destMarker) map.removeLayer(destMarker);
+    routeRequestToken += 1;
+    var currentRouteToken = routeRequestToken;
+
+    var destIcon = L.divIcon({
+      className: 'viode-dest-marker',
+      html: '<svg class="viode-dest-pin" viewBox="0 0 22 26" xmlns="http://www.w3.org/2000/svg"><path d="M11,0 C17,0 22,4.7 22,10.5 C22,18 11,26 11,26 C11,26 0,18 0,10.5 C0,4.7 5,0 11,0Z" fill="#1D1D27"/><circle cx="11" cy="10.5" r="4.5" fill="#FFFFFF"/></svg>',
+      iconSize: [22, 26],
+      iconAnchor: [11, 26]
+    });
+    destMarker = L.marker(dest, { icon: destIcon, keyboard: false, interactive: false }).addTo(map);
+
+    // Draw a multi-bend route immediately, then replace it with an actual
+    // street route when the free public OSRM service responds.
+    setRoutePoints(fallbackStreetRoute(LVIV_CENTER, dest), true);
+    requestStreetRoute(dest, currentRouteToken);
 
     map.flyToBounds([LVIV_CENTER, dest], {
       padding: [32, 32],
@@ -418,7 +457,7 @@
     var activeView = sheetViewport.querySelector('.sheet__view.is-active');
     if (!activeView || activeView.dataset.view !== 'default') return;
     selectDestination({
-      title: 'Pinned destination',
+      title: 'Selected location',
       subtitle: 'Custom map point, Lviv',
       coords: [event.latlng.lat, event.latlng.lng]
     });
@@ -426,6 +465,7 @@
   });
 
   function clearDestinationOnMap() {
+    routeRequestToken += 1;
     if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
     if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
     map.flyTo(LVIV_CENTER, 14, { duration: 0.7 });

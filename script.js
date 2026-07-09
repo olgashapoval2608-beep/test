@@ -6,7 +6,7 @@
 
   // ---- Places dataset (recent + autocomplete suggestions) — Lviv, Ukraine ----
   var PLACES = [
-    { title: 'Forum Lviv', subtitle: 'Kniazia Romana St, Lviv' },
+    { title: 'Forum Lviv', subtitle: 'Pid Dubom St, Lviv' },
     { title: 'Victoria Gardens', subtitle: 'Stryiska St, Lviv' },
     { title: 'Lviv Railway Station', subtitle: 'Chernivetska St, Lviv' },
     { title: 'Lviv Danylo Halytskyi International Airport', subtitle: 'Lyubinska St, Lviv' },
@@ -14,11 +14,11 @@
   ];
 
   // Real approximate coordinates for Lviv landmarks
-  var LVIV_CENTER = [49.8397, 24.0297]; // Rynok Square (pickup)
+  var LVIV_CENTER = [49.8419, 24.0315]; // Rynok Square (pickup)
   var PLACE_COORDS = {
-    'Forum Lviv': [49.8280, 24.0250],
-    'Victoria Gardens': [49.7965, 24.0100],
-    'Lviv Railway Station': [49.8398, 23.9942],
+    'Forum Lviv': [49.8494, 24.0224],
+    'Victoria Gardens': [49.8075, 23.9783],
+    'Lviv Railway Station': [49.8392, 23.9945],
     'Lviv Danylo Halytskyi International Airport': [49.8125, 23.9561],
     'Stryiskyi Park': [49.8226, 24.0234]
   };
@@ -63,6 +63,9 @@
   var confirmRideLabel = document.getElementById('confirm-ride-label');
   var confirmRidePrice = document.getElementById('confirm-ride-price');
   var promoInput = document.getElementById('promo-input');
+  var promoApplyBtn = document.getElementById('promo-apply-btn');
+  var promoFeedback = document.getElementById('promo-feedback');
+  var promoField = document.getElementById('promo-field');
   var noteInput = document.getElementById('note-input');
 
   var paymentTriggerBtn = document.getElementById('payment-trigger-btn');
@@ -77,12 +80,35 @@
   var callBtn = document.getElementById('call-btn');
   var messageBtn = document.getElementById('message-btn');
   var cancelRideBtn = document.getElementById('cancel-ride-btn');
+  var messageSheet = document.getElementById('message-sheet');
+  var messageScrim = document.getElementById('message-scrim');
+  var messageCloseBtn = document.getElementById('message-close-btn');
+  var driverMessageInput = document.getElementById('driver-message-input');
+  var sendMessageBtn = document.getElementById('send-message-btn');
+  var driverTripTitle = document.getElementById('driver-trip-title');
+  var driverTripPrice = document.getElementById('driver-trip-price');
+  var driverTripPayment = document.getElementById('driver-trip-payment');
+  var toast = document.getElementById('toast');
+  var toastMessage = document.getElementById('toast-message');
 
   var stops = [];
   var selectedDestination = null;
-  var selectedRide = { name: 'Economy', price: '₴150' };
+  var selectedRide = { name: 'Economy', basePrice: 150, price: '₴150', eta: 3 };
+  var promoApplied = false;
   var etaCountdownTimer = null;
   var cancelConfirmTimer = null;
+  var toastTimer = null;
+
+  function showToast(message) {
+    toastMessage.textContent = message;
+    toast.hidden = false;
+    requestAnimationFrame(function () { toast.classList.add('is-visible'); });
+    if (toastTimer) clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () {
+      toast.classList.remove('is-visible');
+      setTimeout(function () { toast.hidden = true; }, 240);
+    }, 2200);
+  }
 
   // ============================================================
   // Bottom-sheet view swap (default <-> search), smooth height morph
@@ -349,7 +375,8 @@
     menu: { panel: menuDrawer, scrim: menuScrim },
     addstop: { panel: addstopSheet, scrim: addstopScrim },
     profile: { panel: profilePanel, scrim: null },
-    payment: { panel: paymentSheet, scrim: paymentScrim }
+    payment: { panel: paymentSheet, scrim: paymentScrim },
+    message: { panel: messageSheet, scrim: messageScrim }
   };
 
   function applyOverlayState(name) {
@@ -368,6 +395,11 @@
         closeOverlay();
       });
       setTimeout(function () { stopInput.focus(); }, 260);
+    }
+    if (name === 'message') {
+      driverMessageInput.value = '';
+      driverMessageInput.classList.remove('is-invalid');
+      setTimeout(function () { driverMessageInput.focus(); }, 260);
     }
   }
 
@@ -393,6 +425,18 @@
   menuBtn.addEventListener('click', function () { openOverlay('menu'); });
   menuScrim.addEventListener('click', closeOverlay);
   menuCloseBtn.addEventListener('click', closeOverlay);
+  menuDrawer.querySelector('.drawer__nav').addEventListener('click', function (e) {
+    var item = e.target.closest('.drawer__item');
+    if (!item) return;
+    var label = item.textContent.trim();
+    closeOverlay();
+    if (label === 'Home') {
+      resetTrip();
+      showToast('Back to pickup');
+      return;
+    }
+    showToast(label + ' is ready in your VioRide account');
+  });
 
   addStopBtn.addEventListener('click', function () { openOverlay('addstop'); });
   addstopScrim.addEventListener('click', closeOverlay);
@@ -407,6 +451,11 @@
 
   profileBtn.addEventListener('click', function () { openOverlay('profile'); });
   profileBackBtn.addEventListener('click', closeOverlay);
+  profilePanel.querySelector('.profile-panel__list').addEventListener('click', function (e) {
+    var row = e.target.closest('.profile-row');
+    if (!row) return;
+    showToast(row.textContent.trim());
+  });
 
   // ============================================================
   // Current-location button — smooth recenter feedback
@@ -437,13 +486,74 @@
     confirmRidePrice.textContent = selectedRide.price;
   }
 
+  function getFare(basePrice) {
+    return promoApplied ? Math.round(basePrice * 0.8) : basePrice;
+  }
+
+  function syncRidePrices() {
+    rideList.querySelectorAll('.ride-card').forEach(function (card) {
+      var basePrice = Number(card.dataset.basePrice);
+      var price = '₴' + getFare(basePrice);
+      card.dataset.price = price;
+      card.querySelector('.ride-card__price').textContent = price;
+      if (card.classList.contains('is-selected')) {
+        selectedRide.price = price;
+        selectedRide.basePrice = basePrice;
+      }
+    });
+    updateConfirmButton();
+  }
+
   rideList.addEventListener('click', function (e) {
     var card = e.target.closest('.ride-card');
     if (!card) return;
     rideList.querySelectorAll('.ride-card').forEach(function (c) { c.classList.remove('is-selected'); });
     card.classList.add('is-selected');
-    selectedRide = { name: card.dataset.ride, price: card.dataset.price };
+    selectedRide = {
+      name: card.dataset.ride,
+      basePrice: Number(card.dataset.basePrice),
+      price: card.dataset.price,
+      eta: Number(card.dataset.eta)
+    };
     updateConfirmButton();
+  });
+
+  function applyPromo() {
+    var code = promoInput.value.trim().toUpperCase();
+    promoInput.value = code;
+    if (code === 'VIO20') {
+      promoApplied = true;
+      promoField.classList.remove('is-invalid');
+      promoField.classList.add('is-valid');
+      promoFeedback.className = 'field-feedback is-success';
+      promoFeedback.textContent = '20% off applied';
+      promoApplyBtn.textContent = 'Applied';
+      syncRidePrices();
+      showToast('VIO20 saved you 20%');
+      return;
+    }
+    promoApplied = false;
+    promoField.classList.remove('is-valid');
+    promoField.classList.add('is-invalid');
+    promoFeedback.className = 'field-feedback is-error';
+    promoFeedback.textContent = code ? 'Try VIO20 for this prototype' : 'Enter a promo code';
+    promoApplyBtn.textContent = 'Apply';
+    syncRidePrices();
+  }
+
+  promoApplyBtn.addEventListener('click', applyPromo);
+  promoInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      applyPromo();
+    }
+  });
+  promoInput.addEventListener('input', function () {
+    if (!promoApplied) {
+      promoField.classList.remove('is-invalid');
+      promoFeedback.className = 'field-feedback';
+      promoFeedback.textContent = '';
+    }
   });
 
   paymentTriggerBtn.addEventListener('click', function () { openOverlay('payment'); });
@@ -456,6 +566,19 @@
     opt.classList.add('is-selected');
     paymentMethodLabel.textContent = opt.dataset.method;
     closeOverlay();
+  });
+
+  messageCloseBtn.addEventListener('click', closeOverlay);
+  messageScrim.addEventListener('click', closeOverlay);
+  sendMessageBtn.addEventListener('click', function () {
+    var message = driverMessageInput.value.trim();
+    if (!message) {
+      driverMessageInput.classList.add('is-invalid');
+      driverMessageInput.focus();
+      return;
+    }
+    closeOverlay();
+    setTimeout(function () { showToast('Message sent to Alex'); }, 180);
   });
 
   // ============================================================
@@ -474,27 +597,42 @@
   }
 
   confirmRideBtn.addEventListener('click', function () {
+    driverTripTitle.textContent = selectedRide.name + ' to ' + selectedDestination.title;
+    driverTripPrice.textContent = selectedRide.price;
+    driverTripPayment.textContent = paymentMethodLabel.textContent;
     showSheetView('driver');
     etaPill.hidden = false;
     startEtaCountdown();
     invalidateMapSize();
   });
 
-  [callBtn, messageBtn].forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      btn.style.transform = 'scale(0.95)';
-      setTimeout(function () { btn.style.transform = ''; }, 120);
-    });
+  callBtn.addEventListener('click', function () {
+    callBtn.style.transform = 'scale(0.95)';
+    showToast('Calling Alex K…');
+    setTimeout(function () {
+      callBtn.style.transform = '';
+      showToast('Call connected');
+    }, 900);
   });
+  messageBtn.addEventListener('click', function () { openOverlay('message'); });
 
   function resetTrip() {
+    // Normalize overlay/history state first so a fast cancel immediately after
+    // closing a modal cannot allow a delayed popstate to reopen that modal.
+    history.replaceState(null, '');
+    applyOverlayState(null);
     clearDestination();
     stops = [];
     renderStops();
-    selectedRide = { name: 'Economy', price: '₴150' };
+    selectedRide = { name: 'Economy', basePrice: 150, price: '₴150', eta: 3 };
     rideList.querySelectorAll('.ride-card').forEach(function (c, i) { c.classList.toggle('is-selected', i === 0); });
-    updateConfirmButton();
+    promoApplied = false;
     promoInput.value = '';
+    promoField.classList.remove('is-valid', 'is-invalid');
+    promoFeedback.className = 'field-feedback';
+    promoFeedback.textContent = '';
+    promoApplyBtn.textContent = 'Apply';
+    syncRidePrices();
     noteInput.value = '';
     paymentMethodLabel.textContent = 'Visa •••• 4242';
     paymentList.querySelectorAll('.payment-option').forEach(function (o, i) { o.classList.toggle('is-selected', i === 0); });

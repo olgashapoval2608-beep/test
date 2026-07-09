@@ -110,13 +110,13 @@
             <div class="sheet__section-title">Recent places</div>
 
             <div class="recent-list" id="recent-list">
-              <button class="recent-row" data-title="Forum Lviv" data-subtitle="Kniazia Romana St, Lviv">
+              <button class="recent-row" data-title="Forum Lviv" data-subtitle="Pid Dubom St, Lviv">
                 <span class="recent-row__icon">
                   <svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M8.5 1.8C5.8 1.8 3.8 3.9 3.8 6.5C3.8 10 8.5 15.2 8.5 15.2C8.5 15.2 13.2 10 13.2 6.5C13.2 3.9 11.2 1.8 8.5 1.8Z" stroke="#70707D" stroke-width="1.5"/><circle cx="8.5" cy="6.5" r="1.7" stroke="#70707D" stroke-width="1.5"/></svg>
                 </span>
                 <span class="recent-row__text">
                   <span class="recent-row__title">Forum Lviv</span>
-                  <span class="recent-row__subtitle">Kniazia Romana St, Lviv</span>
+                  <span class="recent-row__subtitle">Pid Dubom St, Lviv</span>
                 </span>
               </button>
               <button class="recent-row" data-title="Lviv Railway Station" data-subtitle="Chernivetska St, Lviv">
@@ -174,7 +174,7 @@
             </div>
 
             <div class="ride-list" id="ride-list">
-              <button class="ride-card is-selected" data-ride="Economy" data-price="₴150" data-eta="3">
+              <button class="ride-card is-selected" data-ride="Economy" data-price="₴150" data-base-price="150" data-eta="3">
                 <span class="ride-card__icon">
                   <svg width="34" height="20" viewBox="0 0 34 20" fill="none"><path d="M3 13.5L5.5 7C6 5.8 7.2 5 8.5 5H24.5C25.9 5 27.1 5.9 27.6 7.2L29.8 13.5" stroke="#1D1D27" stroke-width="1.6" stroke-linejoin="round"/><rect x="1.5" y="13" width="31" height="4.5" rx="2" fill="#1D1D27"/><circle cx="8" cy="18" r="2" fill="#1D1D27"/><circle cx="26" cy="18" r="2" fill="#1D1D27"/></svg>
                 </span>
@@ -188,7 +188,7 @@
                 <span class="ride-card__radio" aria-hidden="true"></span>
               </button>
 
-              <button class="ride-card" data-ride="Comfort" data-price="₴210" data-eta="5">
+              <button class="ride-card" data-ride="Comfort" data-price="₴210" data-base-price="210" data-eta="5">
                 <span class="ride-card__icon">
                   <svg width="38" height="20" viewBox="0 0 38 20" fill="none"><path d="M2 14L4 6.5C4.6 5 6 4 7.6 4H30.4C32 4 33.4 5.1 33.8 6.7L35.5 14" stroke="#1D1D27" stroke-width="1.6" stroke-linejoin="round"/><rect x="0.5" y="13.5" width="36" height="5" rx="2.2" fill="#1D1D27"/><circle cx="9" cy="18.5" r="2.2" fill="#1D1D27"/><circle cx="29" cy="18.5" r="2.2" fill="#1D1D27"/></svg>
                 </span>
@@ -202,7 +202,7 @@
                 <span class="ride-card__radio" aria-hidden="true"></span>
               </button>
 
-              <button class="ride-card" data-ride="XL" data-price="₴280" data-eta="6">
+              <button class="ride-card" data-ride="XL" data-price="₴280" data-base-price="280" data-eta="6">
                 <span class="ride-card__icon">
                   <svg width="40" height="22" viewBox="0 0 40 22" fill="none"><path d="M2 15L3.5 7.5C4.2 5.6 6 4.3 8 4.3H16L20 8.5H31C33 8.5 34.7 9.9 35.2 11.8L36.5 15" stroke="#1D1D27" stroke-width="1.6" stroke-linejoin="round"/><rect x="0.5" y="14.5" width="38" height="5.5" rx="2.4" fill="#1D1D27"/><circle cx="9.5" cy="20" r="2.3" fill="#1D1D27"/><circle cx="30" cy="20" r="2.3" fill="#1D1D27"/></svg>
                 </span>
@@ -228,12 +228,14 @@
               <svg class="option-row__chevron" width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M1.5 1.5L6.5 7L1.5 12.5" stroke="#9B9BA8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
 
-            <div class="inline-field">
+            <div class="inline-field inline-field--promo" id="promo-field">
               <span class="inline-field__icon">
                 <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M9.5 1.8L15.5 7.8C16 8.3 16 9 15.5 9.5L9.5 15.5C9 16 8.3 16 7.8 15.5L1.8 9.5C1.6 9.3 1.5 9 1.5 8.7V3.5C1.5 2.6 2.2 1.8 3.2 1.8H8.3C8.7 1.8 9.1 1.9 9.5 1.8Z" stroke="#70707D" stroke-width="1.4" stroke-linejoin="round"/><circle cx="5.3" cy="5.3" r="1" fill="#70707D"/></svg>
               </span>
               <input class="inline-field__input" id="promo-input" type="text" placeholder="Promo code" autocomplete="off" />
+              <button class="inline-field__action" id="promo-apply-btn" type="button">Apply</button>
             </div>
+            <div class="field-feedback" id="promo-feedback" role="status" aria-live="polite"></div>
             <div class="inline-field">
               <span class="inline-field__icon">
                 <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M2 4.5C2 3.4 2.9 2.5 4 2.5H14C15.1 2.5 16 3.4 16 4.5V10.5C16 11.6 15.1 12.5 14 12.5H6.5L3 15.5V12.5H4C2.9 12.5 2 11.6 2 10.5V4.5Z" stroke="#70707D" stroke-width="1.4" stroke-linejoin="round"/></svg>
@@ -285,7 +287,7 @@
                   </span>
                 </div>
                 <span class="driver-card__car">Toyota Prius · Silver</span>
-                <span class="driver-card__plate">AB12 CDE</span>
+                <span class="driver-card__plate">BC 4827 HX</span>
               </div>
             </div>
 
@@ -298,6 +300,17 @@
                 <svg width="18" height="18" viewBox="0 0 17 17" fill="none"><path d="M2 4C2 3 2.9 2.2 4 2.2H13C14.1 2.2 15 3 15 4V9.5C15 10.5 14.1 11.3 13 11.3H6.5L3 14V11.3H4C2.9 11.3 2 10.5 2 9.5V4Z" stroke="#1D1D27" stroke-width="1.4" stroke-linejoin="round"/></svg>
                 Message
               </button>
+            </div>
+
+            <div class="driver-trip">
+              <div>
+                <span class="driver-trip__eyebrow">Your ride</span>
+                <span class="driver-trip__title" id="driver-trip-title">Economy to Forum Lviv</span>
+              </div>
+              <div class="driver-trip__fare">
+                <strong id="driver-trip-price">₴150</strong>
+                <span id="driver-trip-payment">Visa •••• 4242</span>
+              </div>
             </div>
 
             <div class="cancel-zone" id="cancel-zone">
@@ -407,6 +420,26 @@
         </div>
       </div>
 
+      <!-- message driver sheet -->
+      <div class="modal-scrim" id="message-scrim"></div>
+      <div class="addstop-sheet" id="message-sheet" role="dialog" aria-label="Message driver">
+        <div class="sheet__handle"></div>
+        <div class="addstop-sheet__header">
+          <div>
+            <span class="addstop-sheet__title">Message Alex</span>
+            <span class="addstop-sheet__subtitle">Usually replies within a minute</span>
+          </div>
+          <button class="icon-btn-close" id="message-close-btn" aria-label="Close">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1.5 1.5L12.5 12.5M12.5 1.5L1.5 12.5" stroke="#1D1D27" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <label class="message-composer">
+          <span class="sr-only">Message Alex</span>
+          <textarea id="driver-message-input" rows="3" maxlength="140" placeholder="For example: I am by the main entrance"></textarea>
+        </label>
+        <button class="btn-primary message-send-btn" id="send-message-btn" type="button">Send message</button>
+      </div>
+
       <!-- profile screen -->
       <div class="profile-panel" id="profile-panel" role="dialog" aria-label="Profile">
         <div class="statusbar statusbar--panel">
@@ -453,6 +486,11 @@
             </button>
           </div>
         </div>
+      </div>
+
+      <div class="toast" id="toast" role="status" aria-live="polite" hidden>
+        <span class="toast__icon" aria-hidden="true">V</span>
+        <span id="toast-message">Done</span>
       </div>
 
       <!-- launch splash (brand touch, fades after load) -->

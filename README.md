@@ -32,14 +32,14 @@ Inter (400/500/600/700/800) throughout. Scale: 11px (labels) · 12–13px (capti
 
 ## Component system
 
-Reusable, token-driven CSS components (no framework): `.fab` (floating round buttons), `.sheet` / `.sheet__view` (bottom sheet + view-swap), `.route-card` / `.route-summary` (origin–destination rail), `.recent-row` (shared by recent places, search suggestions, add-stop suggestions, payment options), `.ride-card`, `.driver-card`, `.timeline`, `.btn-primary` / `.btn-round`, `.modal-scrim` + `.drawer` / `.addstop-sheet` / `.profile-panel` / `.payment-sheet` (three shared overlay patterns: side drawer, bottom sheet, full-screen push). Every component pulls spacing, color, radius, shadow, and motion values from the same token set.
+Reusable, token-driven CSS components (no framework): `.fab` (floating round buttons), `.sheet` / `.sheet__view` (bottom sheet + view-swap), `.route-card` / `.route-summary` (origin–destination rail), `.recent-row` (shared by recent places, search suggestions, add-stop suggestions, payment options), `.ride-card`, `.driver-card`, `.timeline`, `.btn-primary` / `.btn-round`, `.modal-scrim` + `.drawer` / `.addstop-sheet` / `.profile-panel` / `.payment-sheet` (three shared overlay patterns: side drawer, bottom sheet, full-screen push). Every component pulls spacing, color, radius, shadow, and motion values from the same token set. Responsive Flexbox and Grid layouts mirror Auto Layout principles: components own their internal spacing and adapt to the available mobile viewport.
 
 ## Main user flow
 
-1. **Home** — map centered on Rynok Square. Search "Where to?", pick a recent place, or add a stop.
+1. **Home** — map centered on Rynok Square. Search "Where to?", pick a recent place, tap the map to pin a custom destination, or add a stop.
 2. Selecting a destination draws a route preview + destination pin and reveals **Continue**.
-3. **Choose a ride** — Economy / Comfort / XL with ETA and price, payment method (opens a sheet), working `VIO20` promo pricing, an optional driver note, then **Confirm ride**.
-4. **Driver en route** — live-ish ETA, progress timeline, driver + car card (real photo), selected fare/payment summary, Call feedback, a working message composer, and a two-tap **Cancel ride** confirmation that resets the trip back to Home.
+3. **Choose a ride** — Economy / Comfort / XL with ETA and GBP pricing, payment method (opens a sheet), working `VIO20` promo pricing, an optional driver note, then **Confirm ride**.
+4. **Driver en route** — live-ish ETA, progress timeline, driver + car card (real photo), selected fare/payment summary, Call feedback, a working message composer, and a dedicated **Cancel ride** confirmation sheet that resets the trip back to Home.
 
 ## Stack
 

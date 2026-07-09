@@ -77,9 +77,14 @@
 
   var etaPill = document.getElementById('eta-pill');
   var liveEtaEl = document.getElementById('live-eta');
+  var driverBackBtn = document.getElementById('driver-back-btn');
   var callBtn = document.getElementById('call-btn');
   var messageBtn = document.getElementById('message-btn');
   var cancelRideBtn = document.getElementById('cancel-ride-btn');
+  var cancelSheet = document.getElementById('cancel-sheet');
+  var cancelScrim = document.getElementById('cancel-scrim');
+  var keepRideBtn = document.getElementById('keep-ride-btn');
+  var confirmCancelBtn = document.getElementById('confirm-cancel-btn');
   var messageSheet = document.getElementById('message-sheet');
   var messageScrim = document.getElementById('message-scrim');
   var messageCloseBtn = document.getElementById('message-close-btn');
@@ -93,10 +98,9 @@
 
   var stops = [];
   var selectedDestination = null;
-  var selectedRide = { name: 'Economy', basePrice: 150, price: '₴150', eta: 3 };
+  var selectedRide = { name: 'Economy', basePrice: 8.4, price: '£8.40', eta: 3 };
   var promoApplied = false;
   var etaCountdownTimer = null;
-  var cancelConfirmTimer = null;
   var toastTimer = null;
 
   function showToast(message) {
@@ -229,7 +233,7 @@
     destinationLabel.classList.remove('route-row__title--placeholder');
     destinationClearBtn.hidden = false;
     continueBtn.hidden = false;
-    setDestinationOnMap(place.title);
+    setDestinationOnMap(place.title, place.coords);
   }
 
   function clearDestination() {
@@ -284,8 +288,8 @@
     return pts;
   }
 
-  function setDestinationOnMap(title) {
-    var dest = PLACE_COORDS[title];
+  function setDestinationOnMap(title, coordinates) {
+    var dest = coordinates || PLACE_COORDS[title];
     if (!dest) return;
 
     if (destMarker) map.removeLayer(destMarker);
@@ -328,6 +332,17 @@
 
     map.flyToBounds([LVIV_CENTER, dest], { paddingTopLeft: [40, 100], paddingBottomRight: [40, 260], duration: 0.9 });
   }
+
+  map.on('click', function (event) {
+    var activeView = sheetViewport.querySelector('.sheet__view.is-active');
+    if (!activeView || activeView.dataset.view !== 'default') return;
+    selectDestination({
+      title: 'Pinned destination',
+      subtitle: 'Custom map point, Lviv',
+      coords: [event.latlng.lat, event.latlng.lng]
+    });
+    showToast('Destination set from map');
+  });
 
   function clearDestinationOnMap() {
     if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
@@ -376,7 +391,8 @@
     addstop: { panel: addstopSheet, scrim: addstopScrim },
     profile: { panel: profilePanel, scrim: null },
     payment: { panel: paymentSheet, scrim: paymentScrim },
-    message: { panel: messageSheet, scrim: messageScrim }
+    message: { panel: messageSheet, scrim: messageScrim },
+    cancel: { panel: cancelSheet, scrim: cancelScrim }
   };
 
   function applyOverlayState(name) {
@@ -487,13 +503,17 @@
   }
 
   function getFare(basePrice) {
-    return promoApplied ? Math.round(basePrice * 0.8) : basePrice;
+    return promoApplied ? basePrice * 0.8 : basePrice;
+  }
+
+  function formatFare(amount) {
+    return '£' + amount.toFixed(2);
   }
 
   function syncRidePrices() {
     rideList.querySelectorAll('.ride-card').forEach(function (card) {
       var basePrice = Number(card.dataset.basePrice);
-      var price = '₴' + getFare(basePrice);
+      var price = formatFare(getFare(basePrice));
       card.dataset.price = price;
       card.querySelector('.ride-card__price').textContent = price;
       if (card.classList.contains('is-selected')) {
@@ -616,6 +636,13 @@
   });
   messageBtn.addEventListener('click', function () { openOverlay('message'); });
 
+  driverBackBtn.addEventListener('click', function () {
+    etaPill.hidden = true;
+    if (etaCountdownTimer) { clearInterval(etaCountdownTimer); etaCountdownTimer = null; }
+    showSheetView('ride');
+    invalidateMapSize();
+  });
+
   function resetTrip() {
     // Normalize overlay/history state first so a fast cancel immediately after
     // closing a modal cannot allow a delayed popstate to reopen that modal.
@@ -624,7 +651,7 @@
     clearDestination();
     stops = [];
     renderStops();
-    selectedRide = { name: 'Economy', basePrice: 150, price: '₴150', eta: 3 };
+    selectedRide = { name: 'Economy', basePrice: 8.4, price: '£8.40', eta: 3 };
     rideList.querySelectorAll('.ride-card').forEach(function (c, i) { c.classList.toggle('is-selected', i === 0); });
     promoApplied = false;
     promoInput.value = '';
@@ -642,20 +669,12 @@
     invalidateMapSize();
   }
 
-  cancelRideBtn.addEventListener('click', function () {
-    if (!cancelRideBtn.classList.contains('is-confirming')) {
-      cancelRideBtn.classList.add('is-confirming');
-      cancelRideBtn.textContent = 'Tap again to confirm';
-      cancelConfirmTimer = setTimeout(function () {
-        cancelRideBtn.classList.remove('is-confirming');
-        cancelRideBtn.textContent = 'Cancel ride';
-      }, 3000);
-      return;
-    }
-    clearTimeout(cancelConfirmTimer);
-    cancelRideBtn.classList.remove('is-confirming');
-    cancelRideBtn.textContent = 'Cancel ride';
+  cancelRideBtn.addEventListener('click', function () { openOverlay('cancel'); });
+  cancelScrim.addEventListener('click', closeOverlay);
+  keepRideBtn.addEventListener('click', closeOverlay);
+  confirmCancelBtn.addEventListener('click', function () {
     resetTrip();
+    showToast('Ride cancelled');
   });
 
   // ============================================================

@@ -2,18 +2,19 @@
    Design tokens
    ============================================================ */
 :root {
-  --ink: #14171F;
-  --muted: #6B7280;
-  --muted-2: #9AA0A6;
-  --line: #E7E9EE;
+  --ink: #1D1D27;
+  --muted: #70707D;
+  --muted-2: #9B9BA8;
+  --line: #E8E8F2;
   --surface: #FFFFFF;
-  --canvas: #F5F6F8;
-  --accent: #4F46E5;
-  --accent-soft: #EEF0FF;
-  --accent-strong: #4338CA;
+  --canvas: #FAFAFC;
+  --accent: #6C63FF;
+  --accent-hover: #5A50F2;
+  --accent-dark: #4B43D1;
+  --accent-soft: #EEEAFE;
   --danger: #EF4444;
   --danger-soft: #FEF2F2;
-  --scrim: rgba(15, 18, 24, 0.44);
+  --scrim: rgba(20, 18, 34, 0.46);
 
   /* 4/8pt spacing scale */
   --sp-2: 2px;
@@ -32,10 +33,10 @@
   --radius-xl: 28px;
   --radius-full: 999px;
 
-  --shadow-xs: 0 1px 2px rgba(20, 23, 31, 0.06);
-  --shadow-sm: 0 2px 8px rgba(20, 23, 31, 0.08);
-  --shadow-md: 0 8px 24px -4px rgba(20, 23, 31, 0.12), 0 2px 6px rgba(20, 23, 31, 0.05);
-  --shadow-lg: 0 24px 48px -16px rgba(20, 23, 31, 0.28), 0 8px 20px rgba(20, 23, 31, 0.08);
+  --shadow-xs: 0 1px 2px rgba(29, 29, 39, 0.06);
+  --shadow-sm: 0 2px 8px rgba(29, 29, 39, 0.07);
+  --shadow-md: 0 8px 20px -4px rgba(29, 29, 39, 0.11), 0 2px 6px rgba(29, 29, 39, 0.05), 0 0 0 1px rgba(29, 29, 39, 0.02);
+  --shadow-lg: 0 24px 48px -16px rgba(29, 29, 39, 0.22), 0 8px 20px rgba(29, 29, 39, 0.07), 0 6px 24px -6px rgba(108, 99, 255, 0.14);
 
   --ease: cubic-bezier(0.4, 0, 0.2, 1);
   --t-fast: 200ms;
@@ -111,50 +112,30 @@ p, h1, h2 { margin: 0; }
   flex-direction: column;
 }
 
-@media (min-width: 641px) {
-  .stage {
-    gap: var(--sp-16);
-    padding: var(--sp-40) var(--sp-16);
-  }
-  .stage__label {
-    display: block;
-    font-size: 11px;
-    font-weight: 600;
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
-    color: var(--muted-2);
-  }
-  .screen {
-    width: 375px;
-    height: 812px;
-    border-radius: 40px;
-    box-shadow: var(--shadow-lg);
-  }
-}
-
 /* ============================================================
    Status bar
    ============================================================ */
 .statusbar {
+  /* Real devices render their own status bar — this fake one is
+     presentation-only chrome, shown solely inside the desktop mockup. */
+  display: none;
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: calc(48px + var(--safe-t));
-  padding-top: var(--safe-t);
-  display: flex;
+  height: 48px;
   align-items: center;
   justify-content: space-between;
-  padding-left: max(var(--sp-24), var(--safe-l));
-  padding-right: max(var(--sp-24), var(--safe-r));
+  padding-left: var(--sp-24);
+  padding-right: var(--sp-24);
   z-index: 20;
   color: var(--ink);
 }
 .statusbar::after {
-  /* dynamic-island style pill */
+  /* dynamic-island style pill — desktop mockup only */
   content: '';
   position: absolute;
-  top: calc(var(--safe-t) + 10px);
+  top: 10px;
   left: 50%;
   transform: translateX(-50%);
   width: 96px;
@@ -172,7 +153,7 @@ p, h1, h2 { margin: 0; }
   align-items: center;
   gap: var(--sp-4);
 }
-.statusbar--panel { position: relative; height: calc(40px + var(--safe-t)); }
+.statusbar--panel { position: relative; height: 40px; }
 .statusbar--panel::after { display: none; }
 
 /* ============================================================
@@ -259,12 +240,12 @@ p, h1, h2 { margin: 0; }
   transition-duration: 90ms;
 }
 .fab--menu {
-  top: max(64px, calc(var(--safe-t) + 56px));
-  left: max(var(--sp-20), var(--safe-l));
+  top: max(var(--sp-16), calc(var(--safe-t) + var(--sp-16)));
+  left: max(var(--sp-16), var(--safe-l));
 }
 .fab--avatar {
-  top: max(64px, calc(var(--safe-t) + 56px));
-  right: max(var(--sp-20), var(--safe-r));
+  top: max(var(--sp-16), calc(var(--safe-t) + var(--sp-16)));
+  right: max(var(--sp-16), var(--safe-r));
   background: var(--surface);
 }
 .fab--locate {
@@ -350,7 +331,7 @@ p, h1, h2 { margin: 0; }
   transition: border-color var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
 }
 .search-field:hover {
-  border-color: var(--accent);
+  border-color: var(--accent-hover);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
 }
@@ -408,7 +389,8 @@ p, h1, h2 { margin: 0; }
   transition: border-color var(--t-fast) var(--ease);
 }
 .search-view__field:focus-within {
-  border-color: var(--accent);
+  border-color: var(--accent-hover);
+  box-shadow: 0 0 0 3px var(--accent-soft);
 }
 .search-view__input {
   flex: 1;
@@ -491,9 +473,14 @@ p, h1, h2 { margin: 0; }
   justify-content: space-between;
   border-radius: var(--radius-sm);
   cursor: pointer;
+  padding-left: var(--sp-8);
+  padding-right: var(--sp-8);
+  margin: 0 calc(var(--sp-8) * -1);
+  width: calc(100% + var(--sp-16));
+  transition: background var(--t-fast) var(--ease), transform 120ms var(--ease);
 }
-.route-row--input:hover { opacity: 0.85; }
-.route-row--input:active { opacity: 0.7; }
+.route-row--input:hover { background: var(--canvas); }
+.route-row--input:active { background: var(--line); transform: scale(0.99); }
 .route-row__title {
   font-size: 15px;
   font-weight: 600;
@@ -547,10 +534,10 @@ p, h1, h2 { margin: 0; }
   padding: var(--sp-8) var(--sp-4);
   margin-top: var(--sp-4);
   border-radius: var(--radius-sm);
-  transition: opacity var(--t-fast) var(--ease), background var(--t-fast) var(--ease);
+  transition: background var(--t-fast) var(--ease), color var(--t-fast) var(--ease), transform 120ms var(--ease);
 }
-.add-stop-btn:hover { background: var(--accent-soft); }
-.add-stop-btn:active { opacity: 0.6; }
+.add-stop-btn:hover { background: var(--accent-soft); color: var(--accent-hover); }
+.add-stop-btn:active { background: var(--accent-soft); color: var(--accent-dark); transform: scale(0.99); }
 .add-stop-btn__icon {
   width: 22px;
   height: 22px;
@@ -622,12 +609,12 @@ p, h1, h2 { margin: 0; }
   gap: var(--sp-12);
   width: 100%;
   min-height: 44px;
-  padding: var(--sp-10, 10px) var(--sp-4);
+  padding: var(--sp-8) var(--sp-4);
   border-radius: var(--radius-sm);
   transition: background var(--t-fast) var(--ease);
 }
-.recent-row:hover { background: rgba(20, 23, 31, 0.04); }
-.recent-row:active { background: rgba(20, 23, 31, 0.07); }
+.recent-row:hover { background: rgba(29, 29, 39, 0.04); }
+.recent-row:active { background: rgba(29, 29, 39, 0.07); }
 .recent-row__icon {
   width: 36px;
   height: 36px;
@@ -665,8 +652,11 @@ p, h1, h2 { margin: 0; }
    Home indicator
    ============================================================ */
 .home-indicator {
+  /* Skeuomorphic home-indicator bar — desktop mockup only; real
+     devices (iOS/Android) render their own. */
+  display: none;
   position: absolute;
-  bottom: max(8px, var(--safe-b));
+  bottom: 8px;
   left: 50%;
   transform: translateX(-50%);
   width: 134px;
@@ -888,8 +878,105 @@ p, h1, h2 { margin: 0; }
 }
 
 /* ============================================================
-   Responsive
+   Brand — drawer lockup + launch splash
    ============================================================ */
-@media (max-width: 640px) {
-  .fab--menu, .fab--avatar { top: max(60px, calc(var(--safe-t) + 52px)); }
+.drawer__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-8);
+  margin-bottom: var(--sp-20);
+}
+.drawer__brand-mark {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.drawer__brand-name {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  letter-spacing: -0.01em;
+}
+
+.splash {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  background: var(--canvas);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-12);
+  opacity: 1;
+  transition: opacity 380ms var(--ease);
+}
+.splash.is-hidden {
+  opacity: 0;
+  pointer-events: none;
+}
+.splash__mark {
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--accent);
+  color: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: 800;
+  box-shadow: var(--shadow-md);
+}
+.splash__name {
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================
+   Responsive — desktop-only presentation chrome.
+   Placed last so it wins the cascade over the mobile-first base
+   rules above (equal specificity, later source order wins).
+   ============================================================ */
+@media (min-width: 641px) {
+  .stage {
+    gap: var(--sp-16);
+    padding: var(--sp-40) var(--sp-16);
+  }
+  .stage__label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--muted-2);
+  }
+  .screen {
+    width: 375px;
+    height: 812px;
+    border-radius: 40px;
+    box-shadow: var(--shadow-lg);
+  }
+  .statusbar {
+    display: flex;
+  }
+  .home-indicator {
+    display: block;
+  }
+  .fab--menu,
+  .fab--avatar {
+    top: 64px;
+  }
+  .fab--menu { left: var(--sp-20); }
+  .fab--avatar { right: var(--sp-20); }
 }

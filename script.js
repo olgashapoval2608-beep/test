@@ -4,16 +4,13 @@
   // ---- iOS Safari :active fix (touch listeners must exist for :active to fire) ----
   document.addEventListener('touchstart', function () {}, { passive: true });
 
-  // ---- Places dataset (recent + autocomplete suggestions) ----
+  // ---- Places dataset (recent + autocomplete suggestions) — Lviv, Ukraine ----
   var PLACES = [
-    { title: 'Kingston Business Park', subtitle: 'Kingston upon Thames, KT2' },
-    { title: 'Heathrow Airport, T5', subtitle: 'Longford, TW6' },
-    { title: 'The Ivy, Covent Garden', subtitle: '1-5 West Street, WC2H' },
-    { title: 'Westfield London', subtitle: 'Ariel Way, W12' },
-    { title: 'St Pancras International', subtitle: 'Euston Road, N1C' },
-    { title: 'Canary Wharf', subtitle: 'Canada Square, E14' },
-    { title: 'Shoreditch High Street', subtitle: 'Shoreditch, E1' },
-    { title: 'Hyde Park Corner', subtitle: 'Westminster, SW1X' }
+    { title: 'Forum Lviv', subtitle: 'Kniazia Romana St, Lviv' },
+    { title: 'Victoria Gardens', subtitle: 'Stryiska St, Lviv' },
+    { title: 'Lviv Railway Station', subtitle: 'Chernivetska St, Lviv' },
+    { title: 'Lviv Danylo Halytskyi International Airport', subtitle: 'Lyubinska St, Lviv' },
+    { title: 'Stryiskyi Park', subtitle: 'Stryiska St, Lviv' }
   ];
 
   // Preset map coordinates a destination marker can land on (viewBox 0 0 375 300)
@@ -156,7 +153,7 @@
       row.className = 'recent-row';
       row.innerHTML =
         '<span class="recent-row__icon">' +
-        '<svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M8.5 1.8C5.8 1.8 3.8 3.9 3.8 6.5C3.8 10 8.5 15.2 8.5 15.2C8.5 15.2 13.2 10 13.2 6.5C13.2 3.9 11.2 1.8 8.5 1.8Z" stroke="#6B7280" stroke-width="1.4"/><circle cx="8.5" cy="6.5" r="1.7" stroke="#6B7280" stroke-width="1.4"/></svg>' +
+        '<svg width="17" height="17" viewBox="0 0 17 17" fill="none"><path d="M8.5 1.8C5.8 1.8 3.8 3.9 3.8 6.5C3.8 10 8.5 15.2 8.5 15.2C8.5 15.2 13.2 10 13.2 6.5C13.2 3.9 11.2 1.8 8.5 1.8Z" stroke="#70707D" stroke-width="1.5"/><circle cx="8.5" cy="6.5" r="1.7" stroke="#70707D" stroke-width="1.5"/></svg>' +
         '</span>' +
         '<span class="recent-row__text">' +
         '<span class="recent-row__title"></span>' +
@@ -221,12 +218,15 @@
     var midY = (PICKUP.y + dest.y) / 2 - 18;
     var d = 'M' + PICKUP.x + ',' + PICKUP.y + ' Q' + midX + ',' + midY + ' ' + dest.x + ',' + dest.y;
 
+    // A subtle route preview, not a committed navigation line — thinner,
+    // softly translucent, drawn in with a smooth reveal.
     var route = document.createElementNS(SVG_NS, 'path');
     route.setAttribute('d', d);
     route.setAttribute('fill', 'none');
-    route.setAttribute('stroke', '#4F46E5');
-    route.setAttribute('stroke-width', '3');
+    route.setAttribute('stroke', '#6C63FF');
+    route.setAttribute('stroke-width', '2.5');
     route.setAttribute('stroke-linecap', 'round');
+    route.setAttribute('opacity', '0.85');
     group.appendChild(route);
 
     var length = route.getTotalLength();
@@ -241,8 +241,8 @@
     pin.setAttribute('class', 'dest-pin');
     pin.setAttribute('transform', 'translate(' + dest.x + ',' + dest.y + ')');
     pin.innerHTML =
-      '<ellipse cx="0" cy="15" rx="6" ry="2" fill="#1F2430" opacity="0.15"/>' +
-      '<path d="M0,-14 C6,-14 10.5,-9.5 10.5,-4 C10.5,3 0,14 0,14 C0,14 -10.5,3 -10.5,-4 C-10.5,-9.5 -6,-14 0,-14Z" fill="#14171F"/>' +
+      '<ellipse cx="0" cy="15" rx="6" ry="2" fill="#1D1D27" opacity="0.15"/>' +
+      '<path d="M0,-14 C6,-14 10.5,-9.5 10.5,-4 C10.5,3 0,14 0,14 C0,14 -10.5,3 -10.5,-4 C-10.5,-9.5 -6,-14 0,-14Z" fill="#1D1D27"/>' +
       '<circle cx="0" cy="-4" r="4" fill="#FFFFFF"/>';
     group.appendChild(pin);
   }
@@ -261,7 +261,7 @@
       row.className = 'stop-row';
       row.innerHTML =
         '<span class="stop-row__icon">' +
-        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 2V14M2.5 7H13.5" stroke="#4F46E5" stroke-width="1.7" stroke-linecap="round"/></svg>' +
+        '<svg width="15" height="15" viewBox="0 0 16 16" fill="none"><path d="M8 2V14M2.5 7H13.5" stroke="#6C63FF" stroke-width="1.6" stroke-linecap="round"/></svg>' +
         '</span>' +
         '<span class="stop-row__title"></span>' +
         '<button type="button" class="stop-remove-btn" aria-label="Remove stop">' +
@@ -354,4 +354,20 @@
     mapEl.classList.add('is-recentering');
     setTimeout(function () { mapEl.classList.remove('is-recentering'); }, 550);
   });
+
+  // ============================================================
+  // Launch splash — a brief branded moment on cold load, like a
+  // native app's launch screen, then fades into the interface.
+  // ============================================================
+  var splash = document.getElementById('splash');
+  if (splash) {
+    var dismissSplash = function () {
+      splash.classList.add('is-hidden');
+      setTimeout(function () {
+        if (splash.parentNode) splash.parentNode.removeChild(splash);
+      }, 400);
+    };
+    var prefersReducedMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    setTimeout(dismissSplash, prefersReducedMotion ? 0 : 650);
+  }
 })();

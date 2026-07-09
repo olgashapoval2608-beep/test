@@ -1,0 +1,437 @@
+/* ============================================================
+   Design tokens
+   ============================================================ */
+:root {
+  --ink: #14171F;
+  --muted: #6B7280;
+  --muted-2: #9AA0A6;
+  --line: #E7E9EE;
+  --surface: #FFFFFF;
+  --canvas: #F5F6F8;
+  --accent: #4F46E5;
+  --accent-soft: #EEF0FF;
+  --accent-strong: #4338CA;
+
+  /* 4/8pt spacing scale */
+  --sp-2: 2px;
+  --sp-4: 4px;
+  --sp-8: 8px;
+  --sp-12: 12px;
+  --sp-16: 16px;
+  --sp-20: 20px;
+  --sp-24: 24px;
+  --sp-32: 32px;
+  --sp-40: 40px;
+
+  --radius-sm: 10px;
+  --radius-md: 14px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
+  --radius-full: 999px;
+
+  --shadow-xs: 0 1px 2px rgba(20, 23, 31, 0.06);
+  --shadow-sm: 0 2px 8px rgba(20, 23, 31, 0.08);
+  --shadow-md: 0 8px 24px -4px rgba(20, 23, 31, 0.12), 0 2px 6px rgba(20, 23, 31, 0.05);
+  --shadow-lg: 0 24px 48px -16px rgba(20, 23, 31, 0.28), 0 8px 20px rgba(20, 23, 31, 0.08);
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+}
+
+/* ============================================================
+   Reset
+   ============================================================ */
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: var(--font-sans);
+  background: #E9EBEF;
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+button {
+  font-family: inherit;
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: inherit;
+  padding: 0;
+  text-align: left;
+}
+p, h1, h2 { margin: 0; }
+
+/* ============================================================
+   Stage — centers the single mobile screen
+   ============================================================ */
+.stage {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--sp-16);
+  padding: var(--sp-40) var(--sp-16);
+}
+.stage__label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted-2);
+}
+
+/* ============================================================
+   Screen frame — 375x812
+   ============================================================ */
+.screen {
+  position: relative;
+  width: 375px;
+  height: 812px;
+  background: var(--canvas);
+  border-radius: 40px;
+  overflow: hidden;
+  box-shadow: var(--shadow-lg);
+  display: flex;
+  flex-direction: column;
+}
+
+/* ============================================================
+   Status bar
+   ============================================================ */
+.statusbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px var(--sp-24) 0;
+  z-index: 20;
+  color: var(--ink);
+}
+.statusbar::after {
+  /* dynamic-island style pill */
+  content: '';
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 96px;
+  height: 26px;
+  background: var(--ink);
+  border-radius: var(--radius-full);
+}
+.statusbar__time {
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.statusbar__icons {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+}
+
+/* ============================================================
+   Map layer — flexes to fill remaining space above the sheet,
+   so floating controls anchored to it never overlap the sheet
+   ============================================================ */
+.map-layer {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.map {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+}
+.map svg { display: block; }
+
+.map-scrim {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 130px;
+  background: linear-gradient(to bottom, rgba(20, 23, 31, 0.16), rgba(20, 23, 31, 0));
+  z-index: 5;
+  pointer-events: none;
+}
+
+.pulse-ring {
+  transform-origin: center;
+  animation: pulse 2.8s ease-out infinite;
+}
+.pulse-ring--2 { animation-delay: 1.4s; }
+@keyframes pulse {
+  0%   { transform: scale(0.45); opacity: 0.35; }
+  70%  { transform: scale(1.6); opacity: 0; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+
+/* ============================================================
+   Floating action buttons
+   ============================================================ */
+.fab {
+  position: absolute;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-full);
+  background: var(--surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: var(--shadow-md);
+  z-index: 15;
+  transition: transform 0.16s ease, box-shadow 0.16s ease;
+}
+.fab:hover {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+}
+.fab:active {
+  transform: translateY(0) scale(0.96);
+}
+.fab--menu {
+  top: 64px;
+  left: var(--sp-20);
+}
+.fab--avatar {
+  top: 64px;
+  right: var(--sp-20);
+  background: var(--surface);
+}
+.fab--locate {
+  right: var(--sp-20);
+  bottom: var(--sp-20);
+}
+
+/* ============================================================
+   Bottom sheet
+   ============================================================ */
+.sheet {
+  position: relative;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-radius: var(--radius-xl) var(--radius-xl) 0 0;
+  box-shadow: var(--shadow-lg);
+  padding: var(--sp-12) var(--sp-20) var(--sp-32);
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+}
+.sheet__handle {
+  width: 36px;
+  height: 4px;
+  background: var(--line);
+  border-radius: var(--radius-full);
+  margin: 0 auto var(--sp-20);
+}
+.sheet__divider {
+  height: 1px;
+  background: var(--line);
+  margin: var(--sp-20) 0 var(--sp-16);
+}
+.sheet__section-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: var(--sp-8);
+}
+
+/* ============================================================
+   Search field
+   ============================================================ */
+.search-field {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+  width: 100%;
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: var(--sp-16);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+.search-field:hover {
+  border-color: var(--accent);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+.search-field__icon { display: flex; flex-shrink: 0; }
+.search-field__text {
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--ink);
+}
+
+/* ============================================================
+   Route card (current location + destination)
+   ============================================================ */
+.route-card {
+  display: grid;
+  grid-template-columns: 10px 1fr;
+  column-gap: var(--sp-12);
+  margin-top: var(--sp-16);
+  padding: 0 var(--sp-4);
+}
+.route-line {
+  grid-column: 1;
+  grid-row: 1 / 4;
+  justify-self: center;
+  width: 1.5px;
+  height: 100%;
+  background: var(--line);
+}
+.route-dot {
+  width: 8px;
+  height: 8px;
+  justify-self: center;
+  align-self: center;
+  z-index: 1;
+}
+.route-dot--origin {
+  grid-column: 1;
+  grid-row: 1;
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  box-shadow: 0 0 0 3px var(--surface);
+}
+.route-dot--dest {
+  grid-column: 1;
+  grid-row: 3;
+  background: var(--ink);
+  border-radius: 2px;
+  box-shadow: 0 0 0 3px var(--surface);
+}
+.route-row {
+  grid-column: 2;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: var(--sp-8) 0;
+}
+.route-row--origin { grid-row: 1; }
+.route-row--input { grid-row: 3; }
+.route-row__title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--ink);
+  line-height: 1.3;
+}
+.route-row__title--placeholder {
+  font-weight: 400;
+  color: var(--muted);
+}
+.route-row__subtitle {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+.route-row-divider {
+  grid-column: 2;
+  grid-row: 2;
+  height: 1px;
+  background: var(--line);
+  align-self: center;
+}
+
+/* ============================================================
+   Add stop
+   ============================================================ */
+.add-stop-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-8);
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  padding: var(--sp-8) var(--sp-4);
+  margin-top: var(--sp-4);
+  transition: opacity 0.15s ease;
+}
+.add-stop-btn:hover { opacity: 0.72; }
+.add-stop-btn:active { opacity: 0.55; }
+.add-stop-btn__icon {
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-full);
+  background: var(--accent-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+/* ============================================================
+   Recent places
+   ============================================================ */
+.recent-list {
+  display: flex;
+  flex-direction: column;
+}
+.recent-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-12);
+  width: 100%;
+  padding: var(--sp-10, 10px) var(--sp-4);
+  border-radius: var(--radius-sm);
+  transition: background 0.15s ease;
+}
+.recent-row:hover { background: rgba(20, 23, 31, 0.03); }
+.recent-row:active { background: rgba(20, 23, 31, 0.05); }
+.recent-row__icon {
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-full);
+  background: var(--canvas);
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.recent-row__text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.recent-row__title {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.recent-row__subtitle {
+  font-size: 12.5px;
+  color: var(--muted);
+  margin-top: 1px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ============================================================
+   Home indicator
+   ============================================================ */
+.home-indicator {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 134px;
+  height: 5px;
+  border-radius: var(--radius-full);
+  background: var(--ink);
+  opacity: 0.9;
+  z-index: 20;
+}

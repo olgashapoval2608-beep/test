@@ -26,7 +26,8 @@
   // ---- Element refs ----
   var screenEl = document.getElementById('screen-home');
   var sheetViewport = document.getElementById('sheet-viewport');
-  var searchTriggerBtn = document.getElementById('search-trigger-btn');
+  var homeDestinationInput = document.getElementById('home-destination-input');
+  var homeSuggestions = document.getElementById('home-suggestions');
   var searchBackBtn = document.getElementById('search-back-btn');
   var destinationInput = document.getElementById('destination-input');
   var suggestionsList = document.getElementById('suggestions-list');
@@ -103,6 +104,9 @@
   var etaCountdownTimer = null;
   var toastTimer = null;
 
+  // Browsers may restore form values across reloads; the booking state does not.
+  homeDestinationInput.value = '';
+
   function showToast(message) {
     toastMessage.textContent = message;
     toast.hidden = false;
@@ -157,15 +161,16 @@
     showSheetView('default');
   }
 
-  searchTriggerBtn.addEventListener('click', openSearch);
   destinationRowBtn.addEventListener('click', function (e) {
     if (e.target.closest('#destination-clear-btn')) return;
-    openSearch();
+    homeDestinationInput.focus();
+    homeDestinationInput.select();
   });
   destinationRowBtn.addEventListener('keydown', function (e) {
     if ((e.key === 'Enter' || e.key === ' ') && !e.target.closest('#destination-clear-btn')) {
       e.preventDefault();
-      openSearch();
+      homeDestinationInput.focus();
+      homeDestinationInput.select();
     }
   });
   searchBackBtn.addEventListener('click', closeSearch);
@@ -180,20 +185,34 @@
   // ============================================================
   // Suggestions rendering (shared by search view + add-stop sheet)
   // ============================================================
+  function customDestination(query) {
+    var hash = 0;
+    for (var i = 0; i < query.length; i++) {
+      hash = ((hash << 5) - hash + query.charCodeAt(i)) | 0;
+    }
+    var latOffset = (((Math.abs(hash) % 1000) / 1000) - 0.5) * 0.032;
+    var lngOffset = (((Math.abs(hash >> 10) % 1000) / 1000) - 0.5) * 0.044;
+    return {
+      title: query.trim(),
+      subtitle: 'Custom destination in Lviv',
+      coords: [LVIV_CENTER[0] + latOffset, LVIV_CENTER[1] + lngOffset],
+      custom: true
+    };
+  }
+
   function renderSuggestions(container, query, onSelect) {
     var q = query.trim().toLowerCase();
     var matches = q
-      ? PLACES.filter(function (p) { return p.title.toLowerCase().indexOf(q) !== -1; })
+      ? PLACES.filter(function (p) {
+          return p.title.toLowerCase().indexOf(q) !== -1 ||
+            p.subtitle.toLowerCase().indexOf(q) !== -1;
+        })
       : PLACES;
 
     container.innerHTML = '';
 
-    if (!matches.length) {
-      var empty = document.createElement('div');
-      empty.className = 'suggestions-list__empty';
-      empty.textContent = 'No places found';
-      container.appendChild(empty);
-      return;
+    if (q && !matches.some(function (place) { return place.title.toLowerCase() === q; })) {
+      matches = matches.concat([customDestination(query)]);
     }
 
     matches.forEach(function (place) {
@@ -210,10 +229,62 @@
         '</span>';
       row.querySelector('.recent-row__title').textContent = place.title;
       row.querySelector('.recent-row__subtitle').textContent = place.subtitle;
+      if (place.custom) row.classList.add('recent-row--custom');
       row.addEventListener('click', function () { onSelect(place); });
       container.appendChild(row);
     });
   }
+
+  function syncDefaultViewHeight() {
+    var active = sheetViewport.querySelector('.sheet__view.is-active');
+    if (!active || active.dataset.view !== 'default') return;
+    requestAnimationFrame(function () {
+      sheetViewport.style.height = active.scrollHeight + 'px';
+    });
+  }
+
+  function showHomeSuggestions() {
+    homeSuggestions.hidden = false;
+    renderSuggestions(homeSuggestions, homeDestinationInput.value, function (place) {
+      selectDestination(place);
+    });
+    syncDefaultViewHeight();
+  }
+
+  homeDestinationInput.addEventListener('focus', showHomeSuggestions);
+  homeDestinationInput.addEventListener('input', function () {
+    if (selectedDestination && homeDestinationInput.value.trim() !== selectedDestination.title) {
+      selectedDestination = null;
+      destinationLabel.textContent = 'Enter destination';
+      destinationLabel.classList.add('route-row__title--placeholder');
+      destinationClearBtn.hidden = true;
+      continueBtn.hidden = true;
+      clearDestinationOnMap();
+    }
+    showHomeSuggestions();
+  });
+  homeDestinationInput.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && homeDestinationInput.value.trim()) {
+      e.preventDefault();
+      var query = homeDestinationInput.value.trim();
+      var exact = PLACES.find(function (place) {
+        return place.title.toLowerCase() === query.toLowerCase();
+      });
+      selectDestination(exact || customDestination(query));
+      homeDestinationInput.blur();
+    }
+    if (e.key === 'Escape') {
+      homeSuggestions.hidden = true;
+      homeDestinationInput.blur();
+      syncDefaultViewHeight();
+    }
+  });
+  homeDestinationInput.addEventListener('blur', function () {
+    setTimeout(function () {
+      homeSuggestions.hidden = true;
+      syncDefaultViewHeight();
+    }, 160);
+  });
 
   // ============================================================
   // Recent places (default view) — click fills destination directly
@@ -229,20 +300,26 @@
   // ============================================================
   function selectDestination(place) {
     selectedDestination = place;
+    homeDestinationInput.value = place.title;
+    homeSuggestions.hidden = true;
     destinationLabel.textContent = place.title;
     destinationLabel.classList.remove('route-row__title--placeholder');
     destinationClearBtn.hidden = false;
     continueBtn.hidden = false;
     setDestinationOnMap(place.title, place.coords);
+    syncDefaultViewHeight();
   }
 
   function clearDestination() {
     selectedDestination = null;
+    homeDestinationInput.value = '';
+    homeSuggestions.hidden = true;
     destinationLabel.textContent = 'Enter destination';
     destinationLabel.classList.add('route-row__title--placeholder');
     destinationClearBtn.hidden = true;
     continueBtn.hidden = true;
     clearDestinationOnMap();
+    syncDefaultViewHeight();
   }
 
   destinationClearBtn.addEventListener('click', function (e) {
@@ -330,7 +407,11 @@
       }
     });
 
-    map.flyToBounds([LVIV_CENTER, dest], { paddingTopLeft: [40, 100], paddingBottomRight: [40, 260], duration: 0.9 });
+    map.flyToBounds([LVIV_CENTER, dest], {
+      padding: [32, 32],
+      maxZoom: 14,
+      duration: 0.8
+    });
   }
 
   map.on('click', function (event) {

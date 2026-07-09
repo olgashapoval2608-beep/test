@@ -261,7 +261,7 @@ p, h1, h2 { margin: 0; }
 }
 .fab--locate {
   right: max(var(--sp-20), var(--safe-r));
-  bottom: var(--sp-20);
+  bottom: 44px;
 }
 
 /* ============================================================
@@ -354,6 +354,43 @@ p, h1, h2 { margin: 0; }
   font-size: 16px;
   font-weight: 500;
   color: var(--ink);
+}
+.search-field__input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--ink);
+  font: 500 16px/1.3 var(--font-sans);
+}
+.search-field__input::placeholder {
+  color: var(--ink);
+  opacity: 1;
+}
+.search-field__input::-webkit-search-cancel-button { display: none; }
+
+.home-suggestions {
+  max-height: 196px;
+  margin-top: var(--sp-8);
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+}
+.home-suggestions[hidden] { display: none; }
+.home-suggestions .recent-row {
+  padding-left: var(--sp-12);
+  padding-right: var(--sp-12);
+}
+.home-suggestions .recent-row + .recent-row {
+  border-top: 1px solid var(--line);
+  border-radius: 0;
+}
+.recent-row--custom .recent-row__icon {
+  border-color: var(--accent-soft);
+  background: var(--accent-soft);
 }
 
 /* ============================================================
@@ -1011,6 +1048,9 @@ p, h1, h2 { margin: 0; }
   background: rgba(255, 255, 255, 0.7) !important;
   color: var(--muted-2) !important;
   padding: 1px 6px !important;
+  margin: 0 4px 4px 0 !important;
+  border-radius: 6px 0 0 0;
+  max-width: calc(100vw - 16px);
 }
 .leaflet-control-attribution a { color: var(--muted) !important; }
 .leaflet-marker-icon.viode-marker,

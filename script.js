@@ -13,23 +13,15 @@
     { title: 'Stryiskyi Park', subtitle: 'Stryiska St, Lviv' }
   ];
 
-  // Preset map coordinates a destination marker can land on (viewBox 0 0 375 300)
-  var DEST_PRESETS = [
-    { x: 300, y: 230 },
-    { x: 80, y: 225 },
-    { x: 290, y: 40 },
-    { x: 60, y: 95 },
-    { x: 330, y: 130 }
-  ];
-
-  function hashString(str) {
-    var h = 0;
-    for (var i = 0; i < str.length; i++) {
-      h = (h << 5) - h + str.charCodeAt(i);
-      h |= 0;
-    }
-    return Math.abs(h);
-  }
+  // Real approximate coordinates for Lviv landmarks
+  var LVIV_CENTER = [49.8397, 24.0297]; // Rynok Square (pickup)
+  var PLACE_COORDS = {
+    'Forum Lviv': [49.8280, 24.0250],
+    'Victoria Gardens': [49.7965, 24.0100],
+    'Lviv Railway Station': [49.8398, 23.9942],
+    'Lviv Danylo Halytskyi International Airport': [49.8125, 23.9561],
+    'Stryiskyi Park': [49.8226, 24.0234]
+  };
 
   // ---- Element refs ----
   var screenEl = document.getElementById('screen-home');
@@ -63,7 +55,34 @@
   var locateBtn = document.getElementById('locate-btn');
   var mapEl = document.getElementById('map');
 
+  var continueBtn = document.getElementById('continue-btn');
+  var rideBackBtn = document.getElementById('ride-back-btn');
+  var rideDestinationText = document.getElementById('ride-destination-text');
+  var rideList = document.getElementById('ride-list');
+  var confirmRideBtn = document.getElementById('confirm-ride-btn');
+  var confirmRideLabel = document.getElementById('confirm-ride-label');
+  var confirmRidePrice = document.getElementById('confirm-ride-price');
+  var promoInput = document.getElementById('promo-input');
+  var noteInput = document.getElementById('note-input');
+
+  var paymentTriggerBtn = document.getElementById('payment-trigger-btn');
+  var paymentSheet = document.getElementById('payment-sheet');
+  var paymentScrim = document.getElementById('payment-scrim');
+  var paymentCloseBtn = document.getElementById('payment-close-btn');
+  var paymentList = document.getElementById('payment-list');
+  var paymentMethodLabel = document.getElementById('payment-method-label');
+
+  var etaPill = document.getElementById('eta-pill');
+  var liveEtaEl = document.getElementById('live-eta');
+  var callBtn = document.getElementById('call-btn');
+  var messageBtn = document.getElementById('message-btn');
+  var cancelRideBtn = document.getElementById('cancel-ride-btn');
+
   var stops = [];
+  var selectedDestination = null;
+  var selectedRide = { name: 'Economy', price: '₴150' };
+  var etaCountdownTimer = null;
+  var cancelConfirmTimer = null;
 
   // ============================================================
   // Bottom-sheet view swap (default <-> search), smooth height morph
@@ -179,16 +198,20 @@
   // Destination selection
   // ============================================================
   function selectDestination(place) {
+    selectedDestination = place;
     destinationLabel.textContent = place.title;
     destinationLabel.classList.remove('route-row__title--placeholder');
     destinationClearBtn.hidden = false;
+    continueBtn.hidden = false;
     setDestinationOnMap(place.title);
   }
 
   function clearDestination() {
+    selectedDestination = null;
     destinationLabel.textContent = 'Enter destination';
     destinationLabel.classList.add('route-row__title--placeholder');
     destinationClearBtn.hidden = true;
+    continueBtn.hidden = true;
     clearDestinationOnMap();
   }
 
@@ -198,58 +221,100 @@
   });
 
   // ============================================================
-  // Map: destination marker + animated route line
+  // Real map — Leaflet + free Carto Positron tiles (OSM data, no key)
   // ============================================================
-  var SVG_NS = 'http://www.w3.org/2000/svg';
-  var PICKUP = { x: 191, y: 155 };
+  var map = L.map('leaflet-map', {
+    zoomControl: false,
+    attributionControl: true,
+    scrollWheelZoom: false,
+    tap: true
+  }).setView(LVIV_CENTER, 14);
 
-  function pickDestinationCoord(seed) {
-    var idx = hashString(seed) % DEST_PRESETS.length;
-    return DEST_PRESETS[idx];
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
+
+  var pickupIcon = L.divIcon({
+    className: 'viode-marker',
+    html: '<div class="viode-pulse-marker"><span class="viode-pulse-marker__ring"></span><span class="viode-pulse-marker__ring" style="animation-delay:1.4s;"></span><span class="viode-pulse-marker__dot"></span></div>',
+    iconSize: [24, 24],
+    iconAnchor: [12, 12]
+  });
+  L.marker(LVIV_CENTER, { icon: pickupIcon, keyboard: false, interactive: false }).addTo(map);
+
+  var destMarker = null;
+  var routeLine = null;
+
+  function quadraticCurve(p0, p1, ctrl, steps) {
+    var pts = [];
+    for (var i = 0; i <= steps; i++) {
+      var t = i / steps;
+      var lat = (1 - t) * (1 - t) * p0[0] + 2 * (1 - t) * t * ctrl[0] + t * t * p1[0];
+      var lng = (1 - t) * (1 - t) * p0[1] + 2 * (1 - t) * t * ctrl[1] + t * t * p1[1];
+      pts.push([lat, lng]);
+    }
+    return pts;
   }
 
-  function setDestinationOnMap(seed) {
-    var svg = document.getElementById('map-svg');
-    var group = document.getElementById('dynamic-route');
-    group.innerHTML = '';
+  function setDestinationOnMap(title) {
+    var dest = PLACE_COORDS[title];
+    if (!dest) return;
 
-    var dest = pickDestinationCoord(seed);
-    var midX = (PICKUP.x + dest.x) / 2;
-    var midY = (PICKUP.y + dest.y) / 2 - 18;
-    var d = 'M' + PICKUP.x + ',' + PICKUP.y + ' Q' + midX + ',' + midY + ' ' + dest.x + ',' + dest.y;
+    if (destMarker) map.removeLayer(destMarker);
+    if (routeLine) map.removeLayer(routeLine);
 
-    // A subtle route preview, not a committed navigation line — thinner,
-    // softly translucent, drawn in with a smooth reveal.
-    var route = document.createElementNS(SVG_NS, 'path');
-    route.setAttribute('d', d);
-    route.setAttribute('fill', 'none');
-    route.setAttribute('stroke', '#6C63FF');
-    route.setAttribute('stroke-width', '2.5');
-    route.setAttribute('stroke-linecap', 'round');
-    route.setAttribute('opacity', '0.85');
-    group.appendChild(route);
+    var destIcon = L.divIcon({
+      className: 'viode-dest-marker',
+      html: '<svg class="viode-dest-pin" viewBox="0 0 22 26" xmlns="http://www.w3.org/2000/svg"><path d="M11,0 C17,0 22,4.7 22,10.5 C22,18 11,26 11,26 C11,26 0,18 0,10.5 C0,4.7 5,0 11,0Z" fill="#1D1D27"/><circle cx="11" cy="10.5" r="4.5" fill="#FFFFFF"/></svg>',
+      iconSize: [22, 26],
+      iconAnchor: [11, 26]
+    });
+    destMarker = L.marker(dest, { icon: destIcon, keyboard: false, interactive: false }).addTo(map);
 
-    var length = route.getTotalLength();
-    route.style.strokeDasharray = length;
-    route.style.strokeDashoffset = length;
-    // force reflow, then animate the draw-in
-    void route.getBoundingClientRect();
-    route.style.transition = 'stroke-dashoffset 620ms ' + 'cubic-bezier(0.4,0,0.2,1)';
-    route.style.strokeDashoffset = '0';
+    // Believable curved route (no external routing service) — a gentle
+    // arc between pickup and destination, not a literal street path.
+    var mid = [(LVIV_CENTER[0] + dest[0]) / 2, (LVIV_CENTER[1] + dest[1]) / 2];
+    var dx = dest[0] - LVIV_CENTER[0];
+    var dy = dest[1] - LVIV_CENTER[1];
+    var ctrl = [mid[0] - dy * 0.35, mid[1] + dx * 0.35];
+    var curvePoints = quadraticCurve(LVIV_CENTER, dest, ctrl, 32);
 
-    var pin = document.createElementNS(SVG_NS, 'g');
-    pin.setAttribute('class', 'dest-pin');
-    pin.setAttribute('transform', 'translate(' + dest.x + ',' + dest.y + ')');
-    pin.innerHTML =
-      '<ellipse cx="0" cy="15" rx="6" ry="2" fill="#1D1D27" opacity="0.15"/>' +
-      '<path d="M0,-14 C6,-14 10.5,-9.5 10.5,-4 C10.5,3 0,14 0,14 C0,14 -10.5,3 -10.5,-4 C-10.5,-9.5 -6,-14 0,-14Z" fill="#1D1D27"/>' +
-      '<circle cx="0" cy="-4" r="4" fill="#FFFFFF"/>';
-    group.appendChild(pin);
+    routeLine = L.polyline(curvePoints, {
+      color: '#6C63FF',
+      weight: 3.5,
+      opacity: 0.88,
+      lineCap: 'round'
+    }).addTo(map);
+
+    requestAnimationFrame(function () {
+      var pathEl = routeLine.getElement();
+      if (pathEl && pathEl.getTotalLength) {
+        var length = pathEl.getTotalLength();
+        pathEl.style.strokeDasharray = length;
+        pathEl.style.strokeDashoffset = length;
+        void pathEl.getBoundingClientRect();
+        pathEl.style.transition = 'stroke-dashoffset 700ms cubic-bezier(0.4,0,0.2,1)';
+        pathEl.style.strokeDashoffset = '0';
+      }
+    });
+
+    map.flyToBounds([LVIV_CENTER, dest], { paddingTopLeft: [40, 100], paddingBottomRight: [40, 260], duration: 0.9 });
   }
 
   function clearDestinationOnMap() {
-    document.getElementById('dynamic-route').innerHTML = '';
+    if (destMarker) { map.removeLayer(destMarker); destMarker = null; }
+    if (routeLine) { map.removeLayer(routeLine); routeLine = null; }
+    map.flyTo(LVIV_CENTER, 14, { duration: 0.7 });
   }
+
+  function invalidateMapSize() {
+    setTimeout(function () { map.invalidateSize(); }, 320);
+  }
+  sheetViewport.addEventListener('transitionend', function (e) {
+    if (e.propertyName === 'height') invalidateMapSize();
+  });
 
   // ============================================================
   // Add stop
@@ -283,7 +348,8 @@
   var overlays = {
     menu: { panel: menuDrawer, scrim: menuScrim },
     addstop: { panel: addstopSheet, scrim: addstopScrim },
-    profile: { panel: profilePanel, scrim: null }
+    profile: { panel: profilePanel, scrim: null },
+    payment: { panel: paymentSheet, scrim: paymentScrim }
   };
 
   function applyOverlayState(name) {
@@ -348,11 +414,110 @@
   locateBtn.addEventListener('click', function () {
     locateBtn.style.transform = 'scale(0.9)';
     setTimeout(function () { locateBtn.style.transform = ''; }, 120);
+    map.flyTo(LVIV_CENTER, Math.max(map.getZoom(), 14), { duration: 0.7 });
+  });
 
-    mapEl.classList.remove('is-recentering');
-    void mapEl.offsetWidth; // restart animation if clicked repeatedly
-    mapEl.classList.add('is-recentering');
-    setTimeout(function () { mapEl.classList.remove('is-recentering'); }, 550);
+  // ============================================================
+  // Screen 2 — ride selection
+  // ============================================================
+  continueBtn.addEventListener('click', function () {
+    if (!selectedDestination) return;
+    rideDestinationText.textContent = selectedDestination.title;
+    showSheetView('ride');
+    invalidateMapSize();
+  });
+
+  rideBackBtn.addEventListener('click', function () {
+    showSheetView('default');
+    invalidateMapSize();
+  });
+
+  function updateConfirmButton() {
+    confirmRideLabel.textContent = 'Confirm ' + selectedRide.name;
+    confirmRidePrice.textContent = selectedRide.price;
+  }
+
+  rideList.addEventListener('click', function (e) {
+    var card = e.target.closest('.ride-card');
+    if (!card) return;
+    rideList.querySelectorAll('.ride-card').forEach(function (c) { c.classList.remove('is-selected'); });
+    card.classList.add('is-selected');
+    selectedRide = { name: card.dataset.ride, price: card.dataset.price };
+    updateConfirmButton();
+  });
+
+  paymentTriggerBtn.addEventListener('click', function () { openOverlay('payment'); });
+  paymentCloseBtn.addEventListener('click', closeOverlay);
+  paymentScrim.addEventListener('click', closeOverlay);
+  paymentList.addEventListener('click', function (e) {
+    var opt = e.target.closest('.payment-option');
+    if (!opt) return;
+    paymentList.querySelectorAll('.payment-option').forEach(function (o) { o.classList.remove('is-selected'); });
+    opt.classList.add('is-selected');
+    paymentMethodLabel.textContent = opt.dataset.method;
+    closeOverlay();
+  });
+
+  // ============================================================
+  // Screen 3 — driver coming
+  // ============================================================
+  function startEtaCountdown() {
+    var minutesLeft = 4;
+    liveEtaEl.textContent = minutesLeft;
+    if (etaCountdownTimer) clearInterval(etaCountdownTimer);
+    etaCountdownTimer = setInterval(function () {
+      if (minutesLeft > 1) {
+        minutesLeft -= 1;
+        liveEtaEl.textContent = minutesLeft;
+      }
+    }, 8000);
+  }
+
+  confirmRideBtn.addEventListener('click', function () {
+    showSheetView('driver');
+    etaPill.hidden = false;
+    startEtaCountdown();
+    invalidateMapSize();
+  });
+
+  [callBtn, messageBtn].forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      btn.style.transform = 'scale(0.95)';
+      setTimeout(function () { btn.style.transform = ''; }, 120);
+    });
+  });
+
+  function resetTrip() {
+    clearDestination();
+    stops = [];
+    renderStops();
+    selectedRide = { name: 'Economy', price: '₴150' };
+    rideList.querySelectorAll('.ride-card').forEach(function (c, i) { c.classList.toggle('is-selected', i === 0); });
+    updateConfirmButton();
+    promoInput.value = '';
+    noteInput.value = '';
+    paymentMethodLabel.textContent = 'Visa •••• 4242';
+    paymentList.querySelectorAll('.payment-option').forEach(function (o, i) { o.classList.toggle('is-selected', i === 0); });
+    etaPill.hidden = true;
+    if (etaCountdownTimer) { clearInterval(etaCountdownTimer); etaCountdownTimer = null; }
+    showSheetView('default');
+    invalidateMapSize();
+  }
+
+  cancelRideBtn.addEventListener('click', function () {
+    if (!cancelRideBtn.classList.contains('is-confirming')) {
+      cancelRideBtn.classList.add('is-confirming');
+      cancelRideBtn.textContent = 'Tap again to confirm';
+      cancelConfirmTimer = setTimeout(function () {
+        cancelRideBtn.classList.remove('is-confirming');
+        cancelRideBtn.textContent = 'Cancel ride';
+      }, 3000);
+      return;
+    }
+    clearTimeout(cancelConfirmTimer);
+    cancelRideBtn.classList.remove('is-confirming');
+    cancelRideBtn.textContent = 'Cancel ride';
+    resetTrip();
   });
 
   // ============================================================

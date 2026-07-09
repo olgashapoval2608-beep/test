@@ -20,6 +20,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -42,66 +43,7 @@
       <!-- premium custom map -->
       <div class="map-layer">
         <div class="map" id="map" aria-hidden="true">
-          <svg id="map-svg" viewBox="0 0 375 300" width="100%" height="100%" preserveAspectRatio="xMidYMid slice">
-            <defs>
-              <linearGradient id="waterGrad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stop-color="#C7DEDA"/>
-                <stop offset="1" stop-color="#B3CFC9"/>
-              </linearGradient>
-              <filter id="softShadow" x="-50%" y="-50%" width="200%" height="200%">
-                <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="#1D1D27" flood-opacity="0.12"/>
-              </filter>
-            </defs>
-
-            <rect width="375" height="300" fill="#EEEDF5"/>
-
-            <!-- water inlet, top-left corner (Poltva) -->
-            <path d="M-20,-20 L130,-20 C100,30 45,60 -20,78 Z" fill="url(#waterGrad)"/>
-
-            <!-- park, bottom-right corner (Stryiskyi Park) -->
-            <path d="M375,175 C340,168 305,190 293,222 C281,254 297,288 330,300 L375,300 Z" fill="#C7DFC5"/>
-
-            <!-- minor roads -->
-            <path d="M-20,60 L400,40" stroke="#DAD8E5" stroke-width="9"/>
-            <path d="M-20,258 L400,272" stroke="#DAD8E5" stroke-width="8"/>
-            <path d="M55,-20 L35,320" stroke="#DAD8E5" stroke-width="8"/>
-            <path d="M330,-20 L348,320" stroke="#DAD8E5" stroke-width="7"/>
-
-            <!-- major roads (crisp white, on top, clear depth), crossing near the marker -->
-            <path d="M-20,165 L400,145" stroke="#1D1D27" stroke-opacity="0.08" stroke-width="17" transform="translate(0,2)"/>
-            <path d="M-20,165 L400,145" stroke="#FFFFFF" stroke-width="15"/>
-            <path d="M150,-20 L230,320" stroke="#1D1D27" stroke-opacity="0.08" stroke-width="15" transform="translate(2,0)"/>
-            <path d="M150,-20 L230,320" stroke="#FFFFFF" stroke-width="13"/>
-
-            <!-- lane markings on the major roads -->
-            <path d="M-20,165 L400,145" stroke="#C6C3D8" stroke-width="1.4" stroke-dasharray="7 8"/>
-            <path d="M150,-20 L230,320" stroke="#C6C3D8" stroke-width="1.4" stroke-dasharray="7 8"/>
-
-            <!-- buildings: two-tone for hierarchy, crisp edges -->
-            <g filter="url(#softShadow)">
-              <rect x="66" y="16" width="46" height="34" rx="6" fill="#DBD9E6" stroke="#C7C4D9" stroke-width="1"/>
-              <rect x="270" y="8" width="36" height="42" rx="6" fill="#CBC8DC" stroke="#B9B5CE" stroke-width="1"/>
-              <rect x="24" y="190" width="52" height="58" rx="6" fill="#CBC8DC" stroke="#B9B5CE" stroke-width="1"/>
-              <rect x="252" y="70" width="32" height="40" rx="6" fill="#DBD9E6" stroke="#C7C4D9" stroke-width="1"/>
-              <rect x="96" y="205" width="38" height="32" rx="6" fill="#DBD9E6" stroke="#C7C4D9" stroke-width="1"/>
-            </g>
-
-            <!-- labels -->
-            <text x="40" y="42" font-family="Inter, sans-serif" font-size="7.5" fill="#A6A5B3" letter-spacing="0.4">Poltva</text>
-            <text x="66" y="158" font-family="Inter, sans-serif" font-size="8.5" font-weight="600" fill="#8B8A9A" transform="rotate(-3 66 158)" letter-spacing="0.3">Svobody Ave</text>
-            <text x="303" y="240" font-family="Inter, sans-serif" font-size="8" fill="#7E8C7B" letter-spacing="0.4">Stryiskyi Park</text>
-
-            <!-- dynamic route + destination marker, populated by script.js -->
-            <g id="dynamic-route"></g>
-
-            <!-- current location marker, at the intersection -->
-            <g transform="translate(191,155)">
-              <circle r="26" fill="#6C63FF" opacity="0.13" class="pulse-ring pulse-ring--1"/>
-              <circle r="26" fill="#6C63FF" opacity="0.13" class="pulse-ring pulse-ring--2"/>
-              <circle r="10.5" fill="#FFFFFF" stroke="#1D1D27" stroke-opacity="0.08" stroke-width="1"/>
-              <circle r="7.5" fill="#6C63FF"/>
-            </g>
-          </svg>
+          <div id="leaflet-map"></div>
         </div>
 
         <div class="map-scrim" aria-hidden="true"></div>
@@ -161,6 +103,8 @@
 
             <div class="stops-list" id="stops-list"></div>
 
+            <button class="btn-primary btn-continue" id="continue-btn" hidden>Continue</button>
+
             <div class="sheet__divider"></div>
 
             <div class="sheet__section-title">Recent places</div>
@@ -212,7 +156,161 @@
             <div class="suggestions-list" id="suggestions-list"></div>
           </div>
 
+          <!-- ride selection view (Screen 2) -->
+          <div class="sheet__view" data-view="ride">
+            <div class="search-view__header">
+              <button class="icon-btn-back" id="ride-back-btn" aria-label="Back">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><path d="M11 3.5L5 9L11 14.5" stroke="#1D1D27" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </button>
+              <span class="search-view__title">Choose a ride</span>
+            </div>
+
+            <div class="route-summary">
+              <span class="route-line" aria-hidden="true"></span>
+              <span class="route-dot route-dot--origin" style="grid-row:1;"></span>
+              <span class="route-summary__text" style="grid-row:1;">Rynok Square</span>
+              <span class="route-dot route-dot--dest" style="grid-row:2;"></span>
+              <span class="route-summary__text" id="ride-destination-text" style="grid-row:2;">Destination</span>
+            </div>
+
+            <div class="ride-list" id="ride-list">
+              <button class="ride-card is-selected" data-ride="Economy" data-price="₴150" data-eta="3">
+                <span class="ride-card__icon">
+                  <svg width="34" height="20" viewBox="0 0 34 20" fill="none"><path d="M3 13.5L5.5 7C6 5.8 7.2 5 8.5 5H24.5C25.9 5 27.1 5.9 27.6 7.2L29.8 13.5" stroke="#1D1D27" stroke-width="1.6" stroke-linejoin="round"/><rect x="1.5" y="13" width="31" height="4.5" rx="2" fill="#1D1D27"/><circle cx="8" cy="18" r="2" fill="#1D1D27"/><circle cx="26" cy="18" r="2" fill="#1D1D27"/></svg>
+                </span>
+                <span class="ride-card__body">
+                  <span class="ride-card__row1">
+                    <span class="ride-card__name">Economy</span>
+                    <span class="ride-card__price">₴150</span>
+                  </span>
+                  <span class="ride-card__meta">3 min away · Affordable, everyday rides</span>
+                </span>
+                <span class="ride-card__radio" aria-hidden="true"></span>
+              </button>
+
+              <button class="ride-card" data-ride="Comfort" data-price="₴210" data-eta="5">
+                <span class="ride-card__icon">
+                  <svg width="38" height="20" viewBox="0 0 38 20" fill="none"><path d="M2 14L4 6.5C4.6 5 6 4 7.6 4H30.4C32 4 33.4 5.1 33.8 6.7L35.5 14" stroke="#1D1D27" stroke-width="1.6" stroke-linejoin="round"/><rect x="0.5" y="13.5" width="36" height="5" rx="2.2" fill="#1D1D27"/><circle cx="9" cy="18.5" r="2.2" fill="#1D1D27"/><circle cx="29" cy="18.5" r="2.2" fill="#1D1D27"/></svg>
+                </span>
+                <span class="ride-card__body">
+                  <span class="ride-card__row1">
+                    <span class="ride-card__name">Comfort</span>
+                    <span class="ride-card__price">₴210</span>
+                  </span>
+                  <span class="ride-card__meta">5 min away · Newer cars, extra legroom</span>
+                </span>
+                <span class="ride-card__radio" aria-hidden="true"></span>
+              </button>
+
+              <button class="ride-card" data-ride="XL" data-price="₴280" data-eta="6">
+                <span class="ride-card__icon">
+                  <svg width="40" height="22" viewBox="0 0 40 22" fill="none"><path d="M2 15L3.5 7.5C4.2 5.6 6 4.3 8 4.3H16L20 8.5H31C33 8.5 34.7 9.9 35.2 11.8L36.5 15" stroke="#1D1D27" stroke-width="1.6" stroke-linejoin="round"/><rect x="0.5" y="14.5" width="38" height="5.5" rx="2.4" fill="#1D1D27"/><circle cx="9.5" cy="20" r="2.3" fill="#1D1D27"/><circle cx="30" cy="20" r="2.3" fill="#1D1D27"/></svg>
+                </span>
+                <span class="ride-card__body">
+                  <span class="ride-card__row1">
+                    <span class="ride-card__name">XL</span>
+                    <span class="ride-card__price">₴280</span>
+                  </span>
+                  <span class="ride-card__meta">6 min away · Up to 6 seats, extra luggage</span>
+                </span>
+                <span class="ride-card__radio" aria-hidden="true"></span>
+              </button>
+            </div>
+
+            <button class="option-row" id="payment-trigger-btn">
+              <span class="option-row__icon">
+                <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="4" width="15" height="10.5" rx="2" stroke="#1D1D27" stroke-width="1.5"/><rect x="1.5" y="6.8" width="15" height="2.2" fill="#1D1D27"/></svg>
+              </span>
+              <span class="option-row__text">
+                <span class="option-row__title">Payment</span>
+                <span class="option-row__subtitle" id="payment-method-label">Visa •••• 4242</span>
+              </span>
+              <svg class="option-row__chevron" width="8" height="14" viewBox="0 0 8 14" fill="none"><path d="M1.5 1.5L6.5 7L1.5 12.5" stroke="#9B9BA8" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+
+            <div class="inline-field">
+              <span class="inline-field__icon">
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M9.5 1.8L15.5 7.8C16 8.3 16 9 15.5 9.5L9.5 15.5C9 16 8.3 16 7.8 15.5L1.8 9.5C1.6 9.3 1.5 9 1.5 8.7V3.5C1.5 2.6 2.2 1.8 3.2 1.8H8.3C8.7 1.8 9.1 1.9 9.5 1.8Z" stroke="#70707D" stroke-width="1.4" stroke-linejoin="round"/><circle cx="5.3" cy="5.3" r="1" fill="#70707D"/></svg>
+              </span>
+              <input class="inline-field__input" id="promo-input" type="text" placeholder="Promo code" autocomplete="off" />
+            </div>
+            <div class="inline-field">
+              <span class="inline-field__icon">
+                <svg width="16" height="16" viewBox="0 0 18 18" fill="none"><path d="M2 4.5C2 3.4 2.9 2.5 4 2.5H14C15.1 2.5 16 3.4 16 4.5V10.5C16 11.6 15.1 12.5 14 12.5H6.5L3 15.5V12.5H4C2.9 12.5 2 11.6 2 10.5V4.5Z" stroke="#70707D" stroke-width="1.4" stroke-linejoin="round"/></svg>
+              </span>
+              <input class="inline-field__input" id="note-input" type="text" placeholder="Note for driver" autocomplete="off" />
+            </div>
+
+            <button class="btn-primary btn-confirm" id="confirm-ride-btn">
+              <span id="confirm-ride-label">Confirm Economy</span>
+              <span id="confirm-ride-price">₴150</span>
+            </button>
+          </div>
+
+          <!-- driver coming view (Screen 3) -->
+          <div class="sheet__view" data-view="driver">
+            <div class="timeline">
+              <div class="timeline__step is-complete">
+                <span class="timeline__dot"></span>
+                <span class="timeline__label">Confirmed</span>
+              </div>
+              <span class="timeline__connector is-complete"></span>
+              <div class="timeline__step is-complete">
+                <span class="timeline__dot"></span>
+                <span class="timeline__label">Assigned</span>
+              </div>
+              <span class="timeline__connector is-active"></span>
+              <div class="timeline__step is-active">
+                <span class="timeline__dot"></span>
+                <span class="timeline__label">Arriving</span>
+              </div>
+              <span class="timeline__connector"></span>
+              <div class="timeline__step">
+                <span class="timeline__dot"></span>
+                <span class="timeline__label">Trip</span>
+              </div>
+            </div>
+
+            <div class="driver-card">
+              <img class="driver-card__car-photo" src="toyota-prius.jpeg" alt="Toyota Prius" />
+              <div class="driver-card__info">
+                <div class="driver-card__row1">
+                  <span class="driver-card__avatar">
+                    <svg width="16" height="16" viewBox="0 0 19 19" fill="none"><circle cx="9.5" cy="6.6" r="3.1" stroke="#FFFFFF" stroke-width="1.6"/><path d="M3.3 16C4.2 12.6 6.6 11 9.5 11C12.4 11 14.8 12.6 15.7 16" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round"/></svg>
+                  </span>
+                  <span class="driver-card__name">Alex K.</span>
+                  <span class="driver-card__rating">
+                    <svg width="12" height="12" viewBox="0 0 13 13" fill="#6C63FF"><path d="M6.5 0.5L8.1 4.4L12.3 4.8L9.1 7.5L10.1 11.7L6.5 9.4L2.9 11.7L3.9 7.5L0.7 4.8L4.9 4.4L6.5 0.5Z"/></svg>
+                    4.9
+                  </span>
+                </div>
+                <span class="driver-card__car">Toyota Prius · Silver</span>
+                <span class="driver-card__plate">AB12 CDE</span>
+              </div>
+            </div>
+
+            <div class="driver-card__actions">
+              <button class="btn-round btn-round--accent" id="call-btn" aria-label="Call driver">
+                <svg width="18" height="18" viewBox="0 0 17 17" fill="none"><path d="M3.5 2H6L7.2 5L5.5 6.3C6.1 7.7 7.3 8.9 8.7 9.5L10 7.8L13 9V11.5C13 12.3 12.3 13 11.5 13C6.7 12.7 2.8 8.9 2.5 4C2.5 3.4 2.9 2.1 3.5 2Z" stroke="white" stroke-width="1.4" stroke-linejoin="round"/></svg>
+                Call
+              </button>
+              <button class="btn-round" id="message-btn" aria-label="Message driver">
+                <svg width="18" height="18" viewBox="0 0 17 17" fill="none"><path d="M2 4C2 3 2.9 2.2 4 2.2H13C14.1 2.2 15 3 15 4V9.5C15 10.5 14.1 11.3 13 11.3H6.5L3 14V11.3H4C2.9 11.3 2 10.5 2 9.5V4Z" stroke="#1D1D27" stroke-width="1.4" stroke-linejoin="round"/></svg>
+                Message
+              </button>
+            </div>
+
+            <div class="cancel-zone" id="cancel-zone">
+              <button class="cancel-link" id="cancel-ride-btn">Cancel ride</button>
+            </div>
+          </div>
+
         </div>
+      </div>
+
+      <div class="eta-pill-floating" id="eta-pill" hidden>
+        <span class="status-dot"></span>
+        Arriving in <strong id="live-eta">4</strong> min
       </div>
 
       <div class="home-indicator"></div>
@@ -280,6 +378,35 @@
         <div class="suggestions-list" id="stop-suggestions-list"></div>
       </div>
 
+      <!-- payment method sheet -->
+      <div class="modal-scrim" id="payment-scrim"></div>
+      <div class="addstop-sheet" id="payment-sheet" role="dialog" aria-label="Payment method">
+        <div class="sheet__handle"></div>
+        <div class="addstop-sheet__header">
+          <span class="addstop-sheet__title">Payment method</span>
+          <button class="icon-btn-close" id="payment-close-btn" aria-label="Close">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M1.5 1.5L12.5 12.5M12.5 1.5L1.5 12.5" stroke="#1D1D27" stroke-width="1.6" stroke-linecap="round"/></svg>
+          </button>
+        </div>
+        <div class="payment-list" id="payment-list">
+          <button class="recent-row payment-option is-selected" data-method="Visa •••• 4242">
+            <span class="recent-row__icon"><svg width="17" height="17" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="4" width="15" height="10.5" rx="2" stroke="#70707D" stroke-width="1.4"/><rect x="1.5" y="6.8" width="15" height="2.2" fill="#70707D"/></svg></span>
+            <span class="recent-row__text"><span class="recent-row__title">Visa •••• 4242</span></span>
+            <span class="payment-option__check" aria-hidden="true"></span>
+          </button>
+          <button class="recent-row payment-option" data-method="Mastercard •••• 8842">
+            <span class="recent-row__icon"><svg width="17" height="17" viewBox="0 0 18 18" fill="none"><rect x="1.5" y="4" width="15" height="10.5" rx="2" stroke="#70707D" stroke-width="1.4"/><rect x="1.5" y="6.8" width="15" height="2.2" fill="#70707D"/></svg></span>
+            <span class="recent-row__text"><span class="recent-row__title">Mastercard •••• 8842</span></span>
+            <span class="payment-option__check" aria-hidden="true"></span>
+          </button>
+          <button class="recent-row payment-option" data-method="Cash">
+            <span class="recent-row__icon"><svg width="17" height="17" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="6.5" stroke="#70707D" stroke-width="1.4"/><path d="M9 6.2V11.8M7 8H11M7 10H11" stroke="#70707D" stroke-width="1.2" stroke-linecap="round"/></svg></span>
+            <span class="recent-row__text"><span class="recent-row__title">Cash</span></span>
+            <span class="payment-option__check" aria-hidden="true"></span>
+          </button>
+        </div>
+      </div>
+
       <!-- profile screen -->
       <div class="profile-panel" id="profile-panel" role="dialog" aria-label="Profile">
         <div class="statusbar statusbar--panel">
@@ -337,6 +464,7 @@
     </div>
   </div>
 
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="script.js"></script>
 </body>
 </html>

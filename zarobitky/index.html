@@ -267,7 +267,7 @@ tfoot td { font-weight: 600; border-bottom: 0; }
     { id: "nadya", name: "Співпраця ТГ Надя", bg: "#f7b9cc", fg: "#6b0f33" },
     { id: "other", name: "Інше", bg: "#f3eef0", fg: "#7d6b74" },
   ];
-  const TYPES = ["Реферат", "Есе", "Контрольна", "Курсова", "Дипломна", "Магістерська", "Практичні", "Звіт з практики", "Презентація", "Тези / стаття", "Інше"];
+  const TYPES = ["Реферат", "Есе", "Контрольна", "Курсова", "Дипломна", "Магістерська", "Практичні", "Семінарські", "Лабораторна", "Звіт з практики", "Презентація", "Тези / стаття", "Інше"];
   const STATUSES = { work: "В роботі", rev: "На правках", done: "Здано" };
   const LS_KEY = "zarobitky.orders.v1";
 
@@ -643,7 +643,7 @@ tfoot td { font-weight: 600; border-bottom: 0; }
             <div class="field"><label for="f-source">Звідки</label><select id="f-source">${opt(SOURCES.map(s => ({ v: s.id, t: s.name })), o.source)}</select></div>
             <div class="field"><label for="f-orderNo">Номер замовлення</label><input id="f-orderNo" value="${esc(o.orderNo)}" placeholder="напр. 48213"></div>
             <div class="field full"><label for="f-topic">Тема</label><input id="f-topic" value="${esc(o.topic)}" placeholder="Тема роботи"></div>
-            <div class="field"><label for="f-type">Тип роботи</label><select id="f-type"><option value="">—</option>${opt(TYPES.map(t => ({ v: t, t })), o.type)}</select></div>
+            <div class="field"><label for="f-type">Тип роботи</label><select id="f-type"><option value="">—</option>${opt((o.type && !TYPES.includes(o.type) ? [...TYPES, o.type] : TYPES).map(t => ({ v: t, t })), o.type)}</select></div>
             <div class="field"><label for="f-uniq">Унікальність, %</label><input id="f-uniq" type="number" inputmode="decimal" min="0" max="100" step="0.1" value="${esc(o.uniq)}" placeholder="напр. 85"></div>
 
             <div class="fsec">Оплата</div>

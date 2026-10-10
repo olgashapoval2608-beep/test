@@ -1,0 +1,793 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+</head>
+<body style="margin:0">
+<title>Мої замовлення</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Rubik:wght@400;500;600&display=swap">
+<style>
+/* Layout: sticky top bar + three tabs (замовлення / календар / звіт), one centered column ≤ 980px; cards stack on phone. */
+:root {
+  --white: #ffffff;
+  --pink-l: #fde4ec;
+  --pink-m: #f7b9cc;
+  --pink-d: #c2185b;
+  --green-l: #e1f3e6;
+  --green-m: #a8dbb6;
+  --green-d: #1f7a45;
+  --ink: #2b1f26;
+  --muted: #7d6b74;
+  --line: #f1dbe3;
+  --bg: #fffafc;
+  --warn: #b45309;
+  --font-display: "Unbounded", "Rubik", system-ui, sans-serif;
+  --font-body: "Rubik", system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--bg); color: var(--ink); }
+body { font-family: var(--font-body); font-size: 15px; line-height: 1.45; -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--pink-d); outline-offset: 2px; }
+.num { font-variant-numeric: tabular-nums; }
+
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20;
+  background: var(--white); border-bottom: 1px solid var(--line);
+}
+.top-in { max-width: 980px; margin: 0 auto; padding: 12px 16px 0; display: flex; flex-direction: column; gap: 10px; }
+.brand { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+.brand h1 { font-family: var(--font-display); font-weight: 700; font-size: 19px; margin: 0; letter-spacing: -0.01em; color: var(--pink-d); }
+.brand h1 span { color: var(--green-d); }
+.save-state { font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px; }
+.save-state i { width: 8px; height: 8px; border-radius: 50%; background: var(--green-m); display: inline-block; }
+.save-state.busy i { background: var(--pink-m); }
+.tabs { display: flex; gap: 4px; overflow-x: auto; }
+.tab {
+  border: 0; background: none; padding: 10px 14px 11px; font-weight: 500; color: var(--muted);
+  border-bottom: 3px solid transparent; white-space: nowrap;
+}
+.tab[aria-selected="true"] { color: var(--pink-d); border-bottom-color: var(--pink-d); }
+
+main { max-width: 980px; margin: 0 auto; padding: 18px 16px 110px; display: flex; flex-direction: column; gap: 18px; }
+
+.btn {
+  border: 1px solid var(--line); background: var(--white); border-radius: 10px; padding: 9px 14px; font-weight: 500;
+  display: inline-flex; align-items: center; gap: 6px;
+}
+.btn:hover { border-color: var(--pink-m); }
+.btn.pink { background: var(--pink-d); border-color: var(--pink-d); color: var(--white); }
+.btn.pink:hover { background: #a3134b; }
+.btn.green { background: var(--green-d); border-color: var(--green-d); color: var(--white); }
+.btn.soft-g { background: var(--green-l); border-color: var(--green-l); color: var(--green-d); }
+.btn.soft-p { background: var(--pink-l); border-color: var(--pink-l); color: var(--pink-d); }
+.btn.sm { padding: 5px 10px; font-size: 13px; border-radius: 8px; }
+.btn.ghost { border-color: transparent; background: transparent; }
+
+.fab {
+  position: fixed; right: 18px; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); z-index: 30;
+  background: var(--pink-d); color: var(--white); border: 0; border-radius: 999px; padding: 14px 20px;
+  font-weight: 600; box-shadow: 0 8px 24px rgba(194, 24, 91, .32); display: flex; align-items: center; gap: 8px;
+}
+.fab b { font-size: 20px; line-height: 1; }
+
+/* summary strip */
+.summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.stat { background: var(--white); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stat small { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.stat strong { font-family: var(--font-display); font-weight: 500; font-size: 19px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.stat.g { background: var(--green-l); border-color: var(--green-l); }
+.stat.g strong { color: var(--green-d); }
+.stat.p { background: var(--pink-l); border-color: var(--pink-l); }
+.stat.p strong { color: var(--pink-d); }
+@media (max-width: 640px) { .summary { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+/* filters */
+.filters { display: flex; flex-direction: column; gap: 10px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip {
+  border: 1px solid var(--line); background: var(--white); border-radius: 999px; padding: 5px 12px; font-size: 13px; color: var(--muted);
+}
+.chip[aria-pressed="true"] { background: var(--pink-d); border-color: var(--pink-d); color: var(--white); }
+.frow { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.frow input[type="search"], .frow select {
+  border: 1px solid var(--line); background: var(--white); border-radius: 10px; padding: 8px 12px; min-width: 0;
+}
+.frow input[type="search"] { flex: 1 1 200px; }
+.check { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--muted); }
+.check input { accent-color: var(--pink-d); width: 16px; height: 16px; }
+
+/* order cards */
+.list { display: flex; flex-direction: column; gap: 10px; }
+.group-h { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--muted); margin: 8px 0 0; }
+.card {
+  background: var(--white); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 16px; cursor: pointer;
+}
+.card:hover { border-color: var(--pink-m); }
+.card.overdue { border-color: var(--pink-d); }
+.c-main { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.c-meta { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; font-size: 12.5px; color: var(--muted); }
+.c-topic { font-weight: 600; font-size: 16px; overflow-wrap: anywhere; }
+.src { border-radius: 6px; padding: 2px 8px; font-weight: 500; font-size: 12px; }
+.pill { border-radius: 999px; padding: 2px 9px; font-size: 12px; font-weight: 500; }
+.st-work { background: var(--pink-l); color: var(--pink-d); }
+.st-rev { background: #fff1d6; color: var(--warn); }
+.st-done { background: var(--green-l); color: var(--green-d); }
+.c-dates { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; }
+.c-dates span b { font-weight: 500; }
+.late { color: var(--pink-d); font-weight: 600; }
+.soon { color: var(--warn); font-weight: 600; }
+.c-money { text-align: right; display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
+.c-price { font-family: var(--font-display); font-weight: 500; font-size: 17px; }
+.c-left { font-size: 13px; }
+.c-left.debt { color: var(--pink-d); font-weight: 600; }
+.c-left.ok { color: var(--green-d); font-weight: 500; }
+.bar { width: 120px; max-width: 100%; height: 6px; border-radius: 99px; background: var(--pink-l); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--green-d); border-radius: 99px; }
+.c-actions { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
+@media (max-width: 560px) {
+  .card { grid-template-columns: minmax(0, 1fr); }
+  .c-money { text-align: left; align-items: flex-start; flex-direction: row; flex-wrap: wrap; gap: 4px 12px; align-items: center; }
+}
+
+.empty {
+  background: var(--white); border: 1px dashed var(--pink-m); border-radius: 16px; padding: 28px 20px; text-align: center;
+  display: flex; flex-direction: column; gap: 10px; align-items: center; color: var(--muted);
+}
+.empty h3 { font-family: var(--font-display); font-weight: 500; color: var(--ink); margin: 0; font-size: 17px; }
+.empty p { margin: 0; max-width: 44ch; }
+
+/* calendar */
+.cal-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.cal-head h2, .rep-head h2 { font-family: var(--font-display); font-weight: 500; font-size: 18px; margin: 0; }
+.nav { display: flex; gap: 6px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.legend span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; background: var(--c); }
+.cal-wrap { overflow-x: auto; }
+.cal { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; min-width: 330px; }
+.dow { font-size: 11px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); text-align: center; padding: 4px 0; }
+.day {
+  background: var(--white); border: 1px solid var(--line); border-radius: 10px; min-height: 84px; padding: 5px;
+  display: flex; flex-direction: column; gap: 3px; text-align: left; min-width: 0;
+}
+.day.out { background: transparent; border-color: transparent; color: var(--muted); opacity: .5; }
+.day.today { border-color: var(--green-d); box-shadow: inset 0 0 0 1px var(--green-d); }
+.day.sel { background: var(--pink-l); border-color: var(--pink-m); }
+.day .d { font-size: 12.5px; font-weight: 600; }
+.ev { font-size: 11px; border-radius: 5px; padding: 1px 5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ev.dl { background: var(--pink-m); color: #6b0f33; }
+.ev.dl.done { background: var(--pink-l); color: var(--muted); text-decoration: line-through; }
+.ev.sub { background: var(--green-m); color: #0f3d22; }
+.ev.got { background: var(--white); border: 1px solid var(--green-m); color: var(--green-d); }
+.ev.more { color: var(--muted); padding-left: 2px; }
+@media (max-width: 560px) {
+  .day { min-height: 58px; padding: 4px 3px; }
+  .ev { font-size: 0; height: 5px; padding: 0; }
+  .ev.more { font-size: 10px; height: auto; }
+}
+.daylist { display: flex; flex-direction: column; gap: 8px; }
+.daylist h3 { margin: 0; font-size: 15px; font-weight: 600; }
+
+/* report */
+.rep-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+.panel { background: var(--white); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.panel h3 { margin: 0; font-family: var(--font-display); font-weight: 500; font-size: 15px; }
+.two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+@media (max-width: 720px) { .two { grid-template-columns: minmax(0, 1fr); } }
+.money-split { display: flex; height: 14px; border-radius: 99px; overflow: hidden; background: var(--pink-l); }
+.money-split i { display: block; background: var(--green-d); }
+.ms-legend { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+th { text-align: left; font-weight: 500; color: var(--muted); font-size: 11.5px; text-transform: uppercase; letter-spacing: .05em; padding: 6px 8px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+td { padding: 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
+td.r, th.r { text-align: right; white-space: nowrap; }
+tr.clk { cursor: pointer; }
+tr.clk:hover td { background: var(--bg); }
+tfoot td { font-weight: 600; border-bottom: 0; }
+.srcbar { display: flex; flex-direction: column; gap: 8px; }
+.srcbar .row { display: grid; grid-template-columns: 130px minmax(0, 1fr) 80px; gap: 10px; align-items: center; font-size: 13px; }
+.srcbar .track { height: 10px; border-radius: 99px; background: var(--pink-l); overflow: hidden; }
+.srcbar .track i { display: block; height: 100%; background: var(--pink-d); border-radius: 99px; }
+@media (max-width: 480px) { .srcbar .row { grid-template-columns: 96px minmax(0, 1fr) 64px; } }
+.muted { color: var(--muted); }
+.backup textarea { width: 100%; min-height: 90px; border: 1px solid var(--line); border-radius: 10px; padding: 10px; font-size: 12.5px; font-family: ui-monospace, Menlo, monospace; }
+
+/* modal form */
+.modal-bg { position: fixed; inset: 0; background: rgba(43, 31, 38, .38); z-index: 50; display: flex; align-items: flex-end; justify-content: center; }
+@media (min-width: 700px) { .modal-bg { align-items: center; padding: 24px; } }
+.modal {
+  background: var(--white); width: 100%; max-width: 640px; max-height: 92vh; overflow-y: auto; border-radius: 20px 20px 0 0;
+  padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+}
+@media (min-width: 700px) { .modal { border-radius: 20px; padding: 22px; } }
+.modal h2 { font-family: var(--font-display); font-weight: 500; font-size: 18px; margin: 0 0 14px; color: var(--pink-d); }
+.form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.form .full { grid-column: 1 / -1; }
+.fsec { grid-column: 1 / -1; font-size: 11.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--green-d); font-weight: 600; margin-top: 6px; border-top: 1px solid var(--line); padding-top: 12px; }
+.field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.field label { font-size: 12.5px; color: var(--muted); }
+.field input, .field select, .field textarea {
+  border: 1px solid var(--line); border-radius: 10px; padding: 9px 11px; background: var(--white); width: 100%; min-width: 0;
+}
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--pink-d); outline: none; }
+.field textarea { min-height: 64px; resize: vertical; }
+.calc { background: var(--green-l); color: var(--green-d); border-radius: 10px; padding: 9px 11px; font-weight: 600; }
+.calc.debt { background: var(--pink-l); color: var(--pink-d); }
+.inline-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.modal-foot { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; margin-top: 18px; }
+.modal-foot .right { display: flex; gap: 8px; }
+.confirm-del { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; font-size: 13px; color: var(--pink-d); }
+@media (max-width: 480px) { .form { grid-template-columns: minmax(0, 1fr); } }
+
+.toast {
+  position: fixed; left: 50%; bottom: calc(84px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60;
+  background: var(--green-d); color: var(--white); padding: 10px 16px; border-radius: 12px; font-size: 14px; box-shadow: 0 6px 18px rgba(31, 122, 69, .3);
+}
+.toast.err { background: var(--pink-d); }
+@media (prefers-reduced-motion: no-preference) {
+  .modal { animation: up .18s ease-out; }
+  @keyframes up { from { transform: translateY(16px); opacity: .6; } to { transform: none; opacity: 1; } }
+}
+</style>
+
+<header class="top">
+  <div class="top-in">
+    <div class="brand">
+      <h1>Мої <span>замовлення</span></h1>
+      <div class="save-state busy" id="saveState"><i></i><span>Завантаження…</span></div>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button class="tab" role="tab" id="tab-orders" data-tab="orders" aria-selected="true">Замовлення</button>
+      <button class="tab" role="tab" id="tab-cal" data-tab="cal" aria-selected="false">Календар</button>
+      <button class="tab" role="tab" id="tab-rep" data-tab="rep" aria-selected="false">Звіт</button>
+    </nav>
+  </div>
+</header>
+
+<main id="view"></main>
+
+<button class="fab" id="addBtn" type="button"><b>+</b> Нове замовлення</button>
+<div id="modalRoot"></div>
+<div id="toastRoot"></div>
+
+<script>
+(() => {
+  const SOURCES = [
+    { id: "kabinet", name: "Кабінет автора", bg: "#fde4ec", fg: "#c2185b" },
+    { id: "pyshemo", name: "Пишемо", bg: "#e1f3e6", fg: "#1f7a45" },
+    { id: "writer", name: "Writer", bg: "#c2185b", fg: "#ffffff" },
+    { id: "tg", name: "Люди з Telegram", bg: "#1f7a45", fg: "#ffffff" },
+    { id: "nadya", name: "Співпраця ТГ Надя", bg: "#f7b9cc", fg: "#6b0f33" },
+    { id: "other", name: "Інше", bg: "#f3eef0", fg: "#7d6b74" },
+  ];
+  const TYPES = ["Реферат", "Есе", "Контрольна", "Курсова", "Дипломна", "Магістерська", "Практичні", "Звіт з практики", "Презентація", "Тези / стаття", "Інше"];
+  const STATUSES = { work: "В роботі", rev: "На правках", done: "Здано" };
+  const LS_KEY = "zarobitky.orders.v1";
+
+  const srcById = id => SOURCES.find(s => s.id === id) || SOURCES[SOURCES.length - 1];
+  const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const money = n => (Math.round((+n || 0) * 100) / 100).toLocaleString("uk-UA") + " грн";
+  const pad = n => String(n).padStart(2, "0");
+  const iso = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const parse = s => { const [y, m, d] = s.split("-").map(Number); return new Date(y, m - 1, d); };
+  const todayIso = () => iso(new Date());
+  const fmtDate = s => s ? parse(s).toLocaleDateString("uk-UA", { day: "numeric", month: "short" }) : "—";
+  const monthKey = s => s ? s.slice(0, 7) : "";
+  const left = o => Math.max(0, (+o.price || 0) - (+o.paid || 0));
+  const daysTo = s => Math.round((parse(s) - parse(todayIso())) / 86400000);
+  const monthName = (y, m) => { const t = new Date(y, m, 1).toLocaleDateString("uk-UA", { month: "long", year: "numeric" }); return t.charAt(0).toUpperCase() + t.slice(1); };
+
+  const state = {
+    orders: [],
+    tab: "orders",
+    filterSrc: "all",
+    filterStatus: "active",
+    search: "",
+    onlyDebt: false,
+    calY: new Date().getFullYear(),
+    calM: new Date().getMonth(),
+    calSel: todayIso(),
+    repY: new Date().getFullYear(),
+    repM: new Date().getMonth(),
+  };
+
+  // ---------- storage: cloud (artifact db) when available, otherwise this device ----------
+  const store = { mode: "local", col: null };
+
+  function setSaveState(text, busy) {
+    const el = document.getElementById("saveState");
+    el.classList.toggle("busy", !!busy);
+    el.querySelector("span").textContent = text;
+  }
+  function savedLabel() {
+    return store.mode === "cloud" ? "Збережено в акаунті" : "Збережено на цьому пристрої";
+  }
+  function loadLocal() {
+    try { state.orders = JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { state.orders = []; }
+  }
+  function saveLocal() {
+    try { localStorage.setItem(LS_KEY, JSON.stringify(state.orders)); return true; } catch { return false; }
+  }
+
+  async function initStore() {
+    if (window.claude && typeof window.claude.use === "function") {
+      try {
+        const [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+        const uid = db && user ? await user.id() : null;
+        if (db && uid) {
+          store.mode = "cloud";
+          store.col = db.collection("data/users/" + uid);
+          store.col.onSnapshot(snap => {
+            state.orders = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+            setSaveState(savedLabel());
+            render();
+          }, () => {
+            setSaveState("Немає зв'язку зі сховищем", true);
+          });
+          return;
+        }
+      } catch { /* fall through to local */ }
+    }
+    store.mode = "local";
+    loadLocal();
+    setSaveState(savedLabel());
+    render();
+  }
+
+  async function persist(order) {
+    const i = state.orders.findIndex(o => o.id === order.id);
+    if (i >= 0) state.orders[i] = order; else state.orders.push(order);
+    render();
+    if (store.mode === "cloud") {
+      setSaveState("Зберігаю…", true);
+      const { id, ...body } = order;
+      try { await store.col.doc(id).set(body); setSaveState(savedLabel()); }
+      catch (e) { setSaveState("Не збереглося", true); toast("Не вдалося зберегти. Перевір інтернет і спробуй ще раз.", true); }
+    } else if (!saveLocal()) {
+      toast("Браузер не дає зберегти дані на пристрої.", true);
+    }
+  }
+  async function remove(id) {
+    state.orders = state.orders.filter(o => o.id !== id);
+    render();
+    if (store.mode === "cloud") {
+      try { await store.col.doc(id).delete(); } catch { toast("Не вдалося видалити. Спробуй ще раз.", true); }
+    } else saveLocal();
+  }
+  const newId = () => "o" + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+
+  // ---------- helpers ----------
+  function toast(msg, err) {
+    const root = document.getElementById("toastRoot");
+    root.innerHTML = `<div class="toast${err ? " err" : ""}">${esc(msg)}</div>`;
+    clearTimeout(toast.t);
+    toast.t = setTimeout(() => (root.innerHTML = ""), 2600);
+  }
+  function srcTag(id) {
+    const s = srcById(id);
+    return `<span class="src" style="background:${s.bg};color:${s.fg}">${esc(s.name)}</span>`;
+  }
+  function statusPill(o) {
+    const cls = o.status === "done" ? "st-done" : o.status === "rev" ? "st-rev" : "st-work";
+    return `<span class="pill ${cls}">${STATUSES[o.status] || STATUSES.work}</span>`;
+  }
+  function deadlineText(o) {
+    if (!o.deadline) return `<span>Здати: <b>—</b></span>`;
+    if (o.status === "done") return `<span>Здати: <b>${fmtDate(o.deadline)}</b></span>`;
+    const d = daysTo(o.deadline);
+    let extra = "";
+    if (d < 0) extra = ` <span class="late">прострочено ${-d} дн.</span>`;
+    else if (d === 0) extra = ` <span class="late">сьогодні</span>`;
+    else if (d <= 3) extra = ` <span class="soon">через ${d} дн.</span>`;
+    else extra = ` <span class="muted">через ${d} дн.</span>`;
+    return `<span>Здати: <b>${fmtDate(o.deadline)}</b>${extra}</span>`;
+  }
+  function card(o, withActions = true) {
+    const l = left(o);
+    const pct = o.price ? Math.min(100, (o.paid / o.price) * 100) : 0;
+    const overdue = o.status !== "done" && o.deadline && daysTo(o.deadline) < 0;
+    const actions = [];
+    if (l > 0) actions.push(`<button class="btn sm soft-g" data-act="paidfull" data-id="${o.id}">Оплачено повністю</button>`);
+    if (o.status !== "done") actions.push(`<button class="btn sm soft-p" data-act="submit" data-id="${o.id}">Здала сьогодні</button>`);
+    return `<article class="card${overdue ? " overdue" : ""}" data-open="${o.id}">
+      <div class="c-main">
+        <div class="c-meta">${srcTag(o.source)}${o.orderNo ? `<span class="num">№ ${esc(o.orderNo)}</span>` : ""}${o.type ? `<span>· ${esc(o.type)}</span>` : ""}${statusPill(o)}</div>
+        <div class="c-topic">${esc(o.topic || "Без теми")}</div>
+        <div class="c-dates num">
+          ${deadlineText(o)}
+          ${o.submitted ? `<span>Здала: <b>${fmtDate(o.submitted)}</b></span>` : ""}
+          ${o.uniq !== "" && o.uniq != null ? `<span>Унікальність: <b>${esc(o.uniq)}%</b></span>` : ""}
+          ${+o.revCount ? `<span>Правки: <b>${+o.revCount}</b></span>` : ""}
+        </div>
+      </div>
+      <div class="c-money num">
+        <div class="c-price">${money(o.price)}</div>
+        <div class="bar" title="Оплачено ${Math.round(pct)}%"><i style="width:${pct}%"></i></div>
+        <div class="c-left ${l > 0 ? "debt" : "ok"}">${l > 0 ? `Винні ${money(l)}` : "Оплачено"}</div>
+      </div>
+      ${withActions && actions.length ? `<div class="c-actions">${actions.join("")}</div>` : ""}
+    </article>`;
+  }
+
+  // ---------- views ----------
+  function viewOrders() {
+    const all = state.orders;
+    const active = all.filter(o => o.status !== "done");
+    const debtTotal = all.reduce((s, o) => s + left(o), 0);
+    const mk = monthKey(todayIso());
+    const paidMonth = all.filter(o => monthKey(o.received) === mk).reduce((s, o) => s + (+o.paid || 0), 0);
+    const near = active.filter(o => o.deadline && daysTo(o.deadline) <= 3).length;
+
+    let list = all.slice();
+    if (state.filterSrc !== "all") list = list.filter(o => o.source === state.filterSrc);
+    if (state.filterStatus === "active") list = list.filter(o => o.status !== "done");
+    else if (state.filterStatus !== "all") list = list.filter(o => o.status === state.filterStatus);
+    if (state.onlyDebt) list = list.filter(o => left(o) > 0);
+    const q = state.search.trim().toLowerCase();
+    if (q) list = list.filter(o => [o.topic, o.orderNo, o.type, o.notes, o.revNote, srcById(o.source).name].join(" ").toLowerCase().includes(q));
+    list.sort((a, b) => {
+      const ad = a.status === "done", bd = b.status === "done";
+      if (ad !== bd) return ad ? 1 : -1;
+      if (ad) return (b.submitted || "").localeCompare(a.submitted || "");
+      return (a.deadline || "9999").localeCompare(b.deadline || "9999");
+    });
+
+    const chips = [`<button class="chip" data-src="all" aria-pressed="${state.filterSrc === "all"}">Усі джерела</button>`]
+      .concat(SOURCES.map(s => `<button class="chip" data-src="${s.id}" aria-pressed="${state.filterSrc === s.id}">${esc(s.name)}</button>`)).join("");
+
+    let body;
+    if (!all.length) {
+      body = `<div class="empty">
+        <h3>Тут з'являться твої замовлення</h3>
+        <p>Натисни «Нове замовлення» і впиши звідки воно, номер, тему, ціну та дату здачі. Борги, календар і звіт порахуються самі.</p>
+        <button class="btn pink" data-act="new">+ Додати перше замовлення</button>
+      </div>`;
+    } else if (!list.length) {
+      body = `<div class="empty"><h3>Нічого не знайдено</h3><p>Зміни фільтри або пошук.</p></div>`;
+    } else {
+      body = list.map(o => card(o)).join("");
+    }
+
+    return `
+      <section class="summary num">
+        <div class="stat p"><small>Винні всього</small><strong>${money(debtTotal)}</strong></div>
+        <div class="stat"><small>В роботі</small><strong>${active.length}</strong></div>
+        <div class="stat"><small>Здати за 3 дні</small><strong>${near}</strong></div>
+        <div class="stat g"><small>Оплачено за ${new Date().toLocaleDateString("uk-UA", { month: "long" })}</small><strong>${money(paidMonth)}</strong></div>
+      </section>
+      <section class="filters">
+        <div class="chips">${chips}</div>
+        <div class="frow">
+          <input type="search" id="search" placeholder="Пошук: тема, номер, нотатки…" value="${esc(state.search)}">
+          <select id="statusFilter">
+            <option value="active"${state.filterStatus === "active" ? " selected" : ""}>Не здані</option>
+            <option value="all"${state.filterStatus === "all" ? " selected" : ""}>Усі</option>
+            <option value="work"${state.filterStatus === "work" ? " selected" : ""}>В роботі</option>
+            <option value="rev"${state.filterStatus === "rev" ? " selected" : ""}>На правках</option>
+            <option value="done"${state.filterStatus === "done" ? " selected" : ""}>Здано</option>
+          </select>
+          <label class="check"><input type="checkbox" id="onlyDebt"${state.onlyDebt ? " checked" : ""}> Тільки де винні</label>
+        </div>
+      </section>
+      <section class="list">${body}</section>`;
+  }
+
+  function viewCal() {
+    const { calY: y, calM: m } = state;
+    const first = new Date(y, m, 1);
+    const start = new Date(y, m, 1 - ((first.getDay() + 6) % 7));
+    const today = todayIso();
+    const byDay = {};
+    const add = (d, kind, o) => { if (!d) return; (byDay[d] ||= []).push({ kind, o }); };
+    state.orders.forEach(o => { add(o.deadline, "dl", o); add(o.submitted, "sub", o); add(o.received, "got", o); });
+    const order = { dl: 0, sub: 1, got: 2 };
+    let cells = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"].map(d => `<div class="dow">${d}</div>`).join("");
+    for (let i = 0; i < 42; i++) {
+      const d = new Date(start); d.setDate(start.getDate() + i);
+      if (i >= 35 && d.getMonth() !== m) break;
+      const key = iso(d);
+      const evs = (byDay[key] || []).sort((a, b) => order[a.kind] - order[b.kind]);
+      const shown = evs.slice(0, 3).map(e => {
+        const cls = e.kind === "dl" ? `dl${e.o.status === "done" ? " done" : ""}` : e.kind;
+        return `<div class="ev ${cls}">${esc(e.o.topic || e.o.orderNo || "Замовлення")}</div>`;
+      }).join("");
+      const more = evs.length > 3 ? `<div class="ev more">ще ${evs.length - 3}</div>` : "";
+      const cls = ["day", d.getMonth() !== m ? "out" : "", key === today ? "today" : "", key === state.calSel ? "sel" : ""].join(" ");
+      cells += `<button class="${cls}" data-day="${key}" aria-label="${key}"><span class="d">${d.getDate()}</span>${shown}${more}</button>`;
+    }
+    const sel = (byDay[state.calSel] || []);
+    const kindName = { dl: "Дедлайн", sub: "Здала", got: "Отримала замовлення" };
+    const selHtml = sel.length
+      ? sel.sort((a, b) => order[a.kind] - order[b.kind]).map(e => `<div class="group-h">${kindName[e.kind]}</div>${card(e.o, false)}`).join("")
+      : `<p class="muted">На цей день нічого немає.</p>`;
+    return `
+      <section class="cal-head">
+        <h2>${monthName(y, m)}</h2>
+        <div class="nav">
+          <button class="btn sm" data-cal="-1" aria-label="Попередній місяць">←</button>
+          <button class="btn sm" data-cal="0">Сьогодні</button>
+          <button class="btn sm" data-cal="1" aria-label="Наступний місяць">→</button>
+        </div>
+      </section>
+      <div class="legend">
+        <span style="--c:var(--pink-m)">Дедлайн</span>
+        <span style="--c:var(--green-m)">Здала</span>
+        <span style="--c:var(--green-l);">Отримала</span>
+      </div>
+      <div class="cal-wrap"><div class="cal">${cells}</div></div>
+      <section class="daylist">
+        <h3>${parse(state.calSel).toLocaleDateString("uk-UA", { weekday: "long", day: "numeric", month: "long" })}</h3>
+        ${selHtml}
+      </section>`;
+  }
+
+  function viewRep() {
+    const { repY: y, repM: m } = state;
+    const mk = `${y}-${pad(m + 1)}`;
+    const given = state.orders.filter(o => monthKey(o.received) === mk).sort((a, b) => (a.received || "").localeCompare(b.received || ""));
+    const done = state.orders.filter(o => monthKey(o.submitted) === mk);
+    const doneOfGiven = given.filter(o => o.status === "done").length;
+    const sum = given.reduce((s, o) => s + (+o.price || 0), 0);
+    const paid = given.reduce((s, o) => s + (+o.paid || 0), 0);
+    const owed = Math.max(0, sum - paid);
+    const allOwed = state.orders.reduce((s, o) => s + left(o), 0);
+    const paidPct = sum ? (paid / sum) * 100 : 0;
+
+    const bySrc = SOURCES.map(s => {
+      const g = given.filter(o => o.source === s.id);
+      return { s, n: g.length, sum: g.reduce((a, o) => a + (+o.price || 0), 0), paid: g.reduce((a, o) => a + (+o.paid || 0), 0) };
+    }).filter(r => r.n);
+    const maxSum = Math.max(1, ...bySrc.map(r => r.sum));
+
+    const byType = {};
+    given.forEach(o => { const t = o.type || "Без типу"; byType[t] = (byType[t] || 0) + 1; });
+
+    const debtors = SOURCES.map(s => {
+      const os = state.orders.filter(o => o.source === s.id && left(o) > 0);
+      return { s, os, total: os.reduce((a, o) => a + left(o), 0) };
+    }).filter(r => r.total > 0);
+
+    const givenRows = given.map(o => `<tr class="clk" data-open="${o.id}">
+        <td class="num">${fmtDate(o.received)}</td>
+        <td>${esc(o.topic || "Без теми")}<div class="muted" style="font-size:12px">${esc(srcById(o.source).name)}${o.orderNo ? " · № " + esc(o.orderNo) : ""}${o.type ? " · " + esc(o.type) : ""}</div></td>
+        <td>${statusPill(o)}</td>
+        <td class="r num">${money(o.price)}</td>
+        <td class="r num">${money(o.paid)}</td>
+        <td class="r num" style="color:${left(o) ? "var(--pink-d)" : "var(--green-d)"}">${money(left(o))}</td>
+      </tr>`).join("");
+
+    return `
+      <section class="rep-head">
+        <h2>Звіт · ${monthName(y, m)}</h2>
+        <div class="nav">
+          <button class="btn sm" data-rep="-1" aria-label="Попередній місяць">←</button>
+          <button class="btn sm" data-rep="0">Цей місяць</button>
+          <button class="btn sm" data-rep="1" aria-label="Наступний місяць">→</button>
+        </div>
+      </section>
+      <section class="summary num">
+        <div class="stat"><small>Дали робіт</small><strong>${given.length}</strong></div>
+        <div class="stat g"><small>Здала за місяць</small><strong>${done.length}</strong></div>
+        <div class="stat g"><small>Виплатили</small><strong>${money(paid)}</strong></div>
+        <div class="stat p"><small>Ще мають заплатити</small><strong>${money(owed)}</strong></div>
+      </section>
+      <section class="two">
+        <div class="panel">
+          <h3>Гроші за замовлення цього місяця</h3>
+          <div class="c-price num">${money(sum)} <span class="muted" style="font-size:13px;font-family:var(--font-body)">загалом</span></div>
+          <div class="money-split" title="Оплачено ${Math.round(paidPct)}%"><i style="width:${paidPct}%"></i></div>
+          <div class="ms-legend num"><span style="color:var(--green-d)">Оплачено ${money(paid)} (${Math.round(paidPct)}%)</span><span style="color:var(--pink-d)">Залишок ${money(owed)}</span></div>
+          <div class="muted" style="font-size:13px">З робіт, що дали цього місяця, вже здано ${doneOfGiven} з ${given.length}. Борг за всі місяці разом: <b style="color:var(--pink-d)">${money(allOwed)}</b>.</div>
+        </div>
+        <div class="panel">
+          <h3>Звідки замовлення</h3>
+          ${bySrc.length ? `<div class="srcbar num">${bySrc.map(r => `<div class="row"><span>${esc(r.s.name)}</span><div class="track"><i style="width:${(r.sum / maxSum) * 100}%;background:${r.s.fg === "#ffffff" ? r.s.bg : r.s.fg}"></i></div><span style="text-align:right">${r.n} шт.</span></div>`).join("")}</div>
+          <div class="tbl-wrap"><table class="num"><thead><tr><th>Джерело</th><th class="r">Сума</th><th class="r">Оплачено</th><th class="r">Винні</th></tr></thead><tbody>
+          ${bySrc.map(r => `<tr><td>${esc(r.s.name)}</td><td class="r">${money(r.sum)}</td><td class="r">${money(r.paid)}</td><td class="r">${money(r.sum - r.paid)}</td></tr>`).join("")}
+          </tbody></table></div>` : `<p class="muted">У цьому місяці замовлень ще немає.</p>`}
+        </div>
+      </section>
+      <section class="panel">
+        <h3>Які роботи давали (${given.length})</h3>
+        ${Object.keys(byType).length ? `<div class="chips">${Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([t, n]) => `<span class="pill st-done">${esc(t)}: ${n}</span>`).join("")}</div>` : ""}
+        ${given.length ? `<div class="tbl-wrap"><table><thead><tr><th>Дали</th><th>Тема</th><th>Статус</th><th class="r">Ціна</th><th class="r">Оплачено</th><th class="r">Винні</th></tr></thead>
+          <tbody>${givenRows}</tbody>
+          <tfoot class="num"><tr><td colspan="3">Разом</td><td class="r">${money(sum)}</td><td class="r">${money(paid)}</td><td class="r">${money(owed)}</td></tr></tfoot></table></div>`
+          : `<p class="muted">Дата «Коли дали» визначає місяць замовлення. Додай замовлення, і воно з'явиться тут.</p>`}
+      </section>
+      <section class="panel">
+        <h3>Хто ще винен (за весь час)</h3>
+        ${debtors.length ? `<div class="tbl-wrap"><table class="num"><thead><tr><th>Джерело</th><th>Замовлення</th><th class="r">Винні</th></tr></thead><tbody>
+          ${debtors.map(r => `<tr><td>${esc(r.s.name)}</td><td>${r.os.map(o => esc(o.orderNo ? "№ " + o.orderNo : (o.topic || "").slice(0, 30))).join(", ")}</td><td class="r" style="color:var(--pink-d)">${money(r.total)}</td></tr>`).join("")}
+          </tbody><tfoot><tr><td colspan="2">Разом</td><td class="r">${money(allOwed)}</td></tr></tfoot></table></div>` : `<p class="muted">Ніхто нічого не винен.</p>`}
+      </section>
+      <section class="panel backup">
+        <h3>Резервна копія</h3>
+        <p class="muted" style="margin:0;font-size:13px">${store.mode === "cloud" ? "Дані зберігаються у твоєму акаунті Claude." : "Дані зберігаються тільки в цьому браузері."} Можна скопіювати всі замовлення текстом і вставити назад на іншому пристрої.</p>
+        <div class="inline-btns"><button class="btn sm" data-act="copyjson">Скопіювати всі дані</button></div>
+        <textarea id="importBox" placeholder="Встав сюди скопійовані дані, щоб відновити їх"></textarea>
+        <div class="inline-btns"><button class="btn sm soft-g" data-act="import">Відновити з тексту</button></div>
+      </section>`;
+  }
+
+  function render() {
+    const view = document.getElementById("view");
+    const active = document.activeElement;
+    const focusId = active && active.id && view.contains(active) ? active.id : null;
+    const caret = focusId === "search" ? active.selectionStart : null;
+    view.innerHTML = state.tab === "orders" ? viewOrders() : state.tab === "cal" ? viewCal() : viewRep();
+    document.querySelectorAll(".tab").forEach(t => t.setAttribute("aria-selected", String(t.dataset.tab === state.tab)));
+    if (focusId) {
+      const el = document.getElementById(focusId);
+      if (el) { el.focus(); if (caret != null) el.setSelectionRange(caret, caret); }
+    }
+  }
+
+  // ---------- form ----------
+  function openForm(o) {
+    const isNew = !o;
+    o = o || { id: newId(), source: state.filterSrc !== "all" ? state.filterSrc : "kabinet", orderNo: "", topic: "", type: "", price: "", paid: "", received: todayIso(), deadline: "", uniq: "", submitted: "", status: "work", revCount: 0, revNote: "", notes: "", payNote: "" };
+    const opt = (arr, val) => arr.map(x => `<option value="${esc(x.v)}"${x.v === val ? " selected" : ""}>${esc(x.t)}</option>`).join("");
+    document.getElementById("modalRoot").innerHTML = `
+      <div class="modal-bg" id="modalBg">
+        <form class="modal" id="orderForm" novalidate>
+          <h2>${isNew ? "Нове замовлення" : "Замовлення"}</h2>
+          <div class="form">
+            <div class="field"><label for="f-source">Звідки</label><select id="f-source">${opt(SOURCES.map(s => ({ v: s.id, t: s.name })), o.source)}</select></div>
+            <div class="field"><label for="f-orderNo">Номер замовлення</label><input id="f-orderNo" value="${esc(o.orderNo)}" placeholder="напр. 48213"></div>
+            <div class="field full"><label for="f-topic">Тема</label><input id="f-topic" value="${esc(o.topic)}" placeholder="Тема роботи"></div>
+            <div class="field"><label for="f-type">Тип роботи</label><select id="f-type"><option value="">—</option>${opt(TYPES.map(t => ({ v: t, t })), o.type)}</select></div>
+            <div class="field"><label for="f-uniq">Унікальність, %</label><input id="f-uniq" type="number" inputmode="decimal" min="0" max="100" step="0.1" value="${esc(o.uniq)}" placeholder="напр. 85"></div>
+
+            <div class="fsec">Оплата</div>
+            <div class="field"><label for="f-price">Ціна, грн</label><input id="f-price" type="number" inputmode="decimal" min="0" step="1" value="${esc(o.price)}"></div>
+            <div class="field"><label for="f-paid">Скільки оплатили, грн</label><input id="f-paid" type="number" inputmode="decimal" min="0" step="1" value="${esc(o.paid)}"></div>
+            <div class="field"><label>Ще мають оплатити</label><div class="calc num" id="f-left"></div></div>
+            <div class="field"><label>Швидко</label><div class="inline-btns">
+              <button type="button" class="btn sm" data-pay="50">50%</button>
+              <button type="button" class="btn sm" data-pay="100">100%</button>
+              <button type="button" class="btn sm" data-pay="0">0</button>
+            </div></div>
+            <div class="field full"><label for="f-payNote">Нотатка про оплату</label><input id="f-payNote" value="${esc(o.payNote)}" placeholder="напр. решту після захисту, карта Моно"></div>
+
+            <div class="fsec">Дати</div>
+            <div class="field"><label for="f-received">Коли дали</label><input id="f-received" type="date" value="${esc(o.received)}"></div>
+            <div class="field"><label for="f-deadline">Дата здачі (дедлайн)</label><input id="f-deadline" type="date" value="${esc(o.deadline)}"></div>
+            <div class="field"><label for="f-submitted">Коли я здала</label><input id="f-submitted" type="date" value="${esc(o.submitted)}"></div>
+            <div class="field"><label for="f-status">Статус</label><select id="f-status">${opt(Object.entries(STATUSES).map(([v, t]) => ({ v, t })), o.status)}</select></div>
+
+            <div class="fsec">Правки та нотатки</div>
+            <div class="field"><label for="f-revCount">Кількість правок</label><input id="f-revCount" type="number" min="0" step="1" value="${esc(o.revCount || 0)}"></div>
+            <div class="field"><label>&nbsp;</label><div class="inline-btns"><button type="button" class="btn sm soft-p" id="revPlus">+ правка</button></div></div>
+            <div class="field full"><label for="f-revNote">Що просили виправити</label><textarea id="f-revNote" placeholder="Зауваження викладача, до якої дати">${esc(o.revNote)}</textarea></div>
+            <div class="field full"><label for="f-notes">Нотатки</label><textarea id="f-notes" placeholder="Методичка, обсяг сторінок, контакт замовника…">${esc(o.notes)}</textarea></div>
+          </div>
+          <div class="modal-foot">
+            <div id="delZone">${isNew ? "" : `<button type="button" class="btn ghost" id="delBtn" style="color:var(--pink-d)">Видалити</button>`}</div>
+            <div class="right">
+              <button type="button" class="btn" id="cancelBtn">Скасувати</button>
+              <button type="submit" class="btn pink">Зберегти</button>
+            </div>
+          </div>
+        </form>
+      </div>`;
+    const f = id => document.getElementById("f-" + id);
+    const upd = () => {
+      const l = Math.max(0, (+f("price").value || 0) - (+f("paid").value || 0));
+      f("left").textContent = l > 0 ? money(l) : "Нічого";
+      f("left").classList.toggle("debt", l > 0);
+    };
+    upd();
+    f("price").addEventListener("input", upd);
+    f("paid").addEventListener("input", upd);
+    f("submitted").addEventListener("change", () => { if (f("submitted").value && f("status").value === "work") f("status").value = "done"; });
+    document.querySelectorAll("[data-pay]").forEach(b => b.addEventListener("click", () => {
+      f("paid").value = Math.round((+f("price").value || 0) * (+b.dataset.pay) / 100); upd();
+    }));
+    document.getElementById("revPlus").addEventListener("click", () => { f("revCount").value = (+f("revCount").value || 0) + 1; f("status").value = "rev"; });
+    const close = () => (document.getElementById("modalRoot").innerHTML = "");
+    document.getElementById("cancelBtn").addEventListener("click", close);
+    document.getElementById("modalBg").addEventListener("click", e => { if (e.target.id === "modalBg") close(); });
+    const del = document.getElementById("delBtn");
+    if (del) del.addEventListener("click", () => {
+      document.getElementById("delZone").innerHTML = `<div class="confirm-del">Точно видалити? <button type="button" class="btn sm pink" id="delYes">Так, видалити</button><button type="button" class="btn sm" id="delNo">Ні</button></div>`;
+      document.getElementById("delYes").addEventListener("click", () => { remove(o.id); close(); toast("Замовлення видалено"); });
+      document.getElementById("delNo").addEventListener("click", () => openForm(o));
+    });
+    document.getElementById("orderForm").addEventListener("submit", e => {
+      e.preventDefault();
+      if (!f("topic").value.trim() && !f("orderNo").value.trim()) { f("topic").focus(); toast("Впиши тему або номер замовлення", true); return; }
+      const next = {
+        id: o.id, created: o.created || new Date().toISOString(),
+        source: f("source").value, orderNo: f("orderNo").value.trim(), topic: f("topic").value.trim(), type: f("type").value,
+        price: +f("price").value || 0, paid: +f("paid").value || 0, payNote: f("payNote").value.trim(),
+        uniq: f("uniq").value === "" ? "" : +f("uniq").value,
+        received: f("received").value, deadline: f("deadline").value, submitted: f("submitted").value, status: f("status").value,
+        revCount: +f("revCount").value || 0, revNote: f("revNote").value.trim(), notes: f("notes").value.trim(),
+      };
+      persist(next); close(); toast(isNew ? "Замовлення додано" : "Збережено");
+    });
+    if (isNew) setTimeout(() => f("orderNo").focus(), 50);
+  }
+
+  // ---------- events ----------
+  document.querySelector(".tabs").addEventListener("click", e => {
+    const t = e.target.closest(".tab"); if (!t) return;
+    state.tab = t.dataset.tab; render(); window.scrollTo(0, 0);
+  });
+  document.getElementById("addBtn").addEventListener("click", () => openForm());
+  document.addEventListener("keydown", e => { if (e.key === "Escape") document.getElementById("modalRoot").innerHTML = ""; });
+
+  const view = document.getElementById("view");
+  view.addEventListener("click", async e => {
+    const act = e.target.closest("[data-act]");
+    if (act) {
+      e.stopPropagation();
+      const o = state.orders.find(x => x.id === act.dataset.id);
+      if (act.dataset.act === "new") return openForm();
+      if (act.dataset.act === "paidfull" && o) { persist({ ...o, paid: o.price }); toast("Позначено як оплачене"); return; }
+      if (act.dataset.act === "submit" && o) { persist({ ...o, submitted: todayIso(), status: "done" }); toast("Позначено як здане"); return; }
+      if (act.dataset.act === "copyjson") {
+        const text = JSON.stringify(state.orders);
+        try { await navigator.clipboard.writeText(text); toast("Скопійовано"); }
+        catch { const box = document.getElementById("importBox"); box.value = text; box.select(); toast("Виділено — скопіюй вручну"); }
+        return;
+      }
+      if (act.dataset.act === "import") {
+        let data;
+        try { data = JSON.parse(document.getElementById("importBox").value); } catch { toast("Текст не схожий на резервну копію", true); return; }
+        if (!Array.isArray(data)) { toast("Текст не схожий на резервну копію", true); return; }
+        let n = 0;
+        for (const o of data) { if (o && typeof o === "object") { await persist({ ...o, id: o.id || newId() }); n++; } }
+        toast(`Відновлено замовлень: ${n}`);
+        return;
+      }
+    }
+    const src = e.target.closest("[data-src]");
+    if (src) { state.filterSrc = src.dataset.src; return render(); }
+    const cal = e.target.closest("[data-cal]");
+    if (cal) {
+      const d = +cal.dataset.cal;
+      if (d === 0) { const n = new Date(); state.calY = n.getFullYear(); state.calM = n.getMonth(); state.calSel = todayIso(); }
+      else { const n = new Date(state.calY, state.calM + d, 1); state.calY = n.getFullYear(); state.calM = n.getMonth(); }
+      return render();
+    }
+    const rep = e.target.closest("[data-rep]");
+    if (rep) {
+      const d = +rep.dataset.rep;
+      if (d === 0) { const n = new Date(); state.repY = n.getFullYear(); state.repM = n.getMonth(); }
+      else { const n = new Date(state.repY, state.repM + d, 1); state.repY = n.getFullYear(); state.repM = n.getMonth(); }
+      return render();
+    }
+    const day = e.target.closest("[data-day]");
+    if (day) {
+      state.calSel = day.dataset.day;
+      const d = parse(state.calSel);
+      if (d.getMonth() !== state.calM) { state.calY = d.getFullYear(); state.calM = d.getMonth(); }
+      return render();
+    }
+    const open = e.target.closest("[data-open]");
+    if (open) { const o = state.orders.find(x => x.id === open.dataset.open); if (o) openForm(o); }
+  });
+  view.addEventListener("input", e => {
+    if (e.target.id === "search") { state.search = e.target.value; render(); }
+  });
+  view.addEventListener("change", e => {
+    if (e.target.id === "statusFilter") { state.filterStatus = e.target.value; render(); }
+    if (e.target.id === "onlyDebt") { state.onlyDebt = e.target.checked; render(); }
+  });
+
+  render();
+  initStore();
+})();
+</script>
+
+</body>
+</html>

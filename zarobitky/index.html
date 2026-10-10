@@ -423,7 +423,8 @@ tfoot td { font-weight: 600; border-bottom: 0; }
         <div class="c-dates num">
           ${deadlineText(o)}
           ${o.submitted ? `<span>Здала: <b>${fmtDate(o.submitted)}</b></span>` : ""}
-          ${o.uniq !== "" && o.uniq != null ? `<span>Унікальність: <b>${esc(o.uniq)}%</b></span>` : ""}
+          ${o.uniqReq ? `<span>Треба унікальність: <b>від ${esc(o.uniqReq)}%</b></span>` : ""}
+          ${o.uniq !== "" && o.uniq != null ? `<span>Вийшло: <b>${esc(o.uniq)}%</b></span>` : ""}
           ${+o.revCount ? `<span>Правки: <b>${+o.revCount}</b></span>` : ""}
         </div>
       </div>
@@ -706,7 +707,8 @@ tfoot td { font-weight: 600; border-bottom: 0; }
             <div class="field"><label for="f-orderNo">Номер замовлення</label><input id="f-orderNo" value="${esc(o.orderNo)}" placeholder="напр. 48213"></div>
             <div class="field full"><label for="f-topic">Тема</label><input id="f-topic" value="${esc(o.topic)}" placeholder="Тема роботи"></div>
             <div class="field"><label for="f-type">Тип роботи</label><select id="f-type"><option value="">—</option>${opt((o.type && !TYPES.includes(o.type) ? [...TYPES, o.type] : TYPES).map(t => ({ v: t, t })), o.type)}</select></div>
-            <div class="field"><label for="f-uniq">Унікальність, %</label><input id="f-uniq" type="number" inputmode="decimal" min="0" max="100" step="0.1" value="${esc(o.uniq)}" placeholder="напр. 85"></div>
+            <div class="field"><label for="f-uniqReq">Потрібна унікальність, %</label><input id="f-uniqReq" value="${esc(o.uniqReq || "")}" placeholder="напр. 80 або 80–90"></div>
+            <div class="field"><label for="f-uniq">Унікальність вийшла, %</label><input id="f-uniq" type="number" inputmode="decimal" min="0" max="100" step="0.1" value="${esc(o.uniq)}" placeholder="напр. 85"></div>
 
             <div class="fsec">Оплата</div>
             <div class="field"><label for="f-price">Ціна, грн</label><input id="f-price" type="number" inputmode="decimal" min="0" step="1" value="${esc(o.price)}"></div>
@@ -775,6 +777,7 @@ tfoot td { font-weight: 600; border-bottom: 0; }
         price: +f("price").value || 0, dop: +f("dop").value || 0, paid: +f("paid").value || 0, payNote: f("payNote").value.trim(),
         paidOn: f("paidOn").value || ((+f("paid").value || 0) > (+o.paid || 0) ? todayIso() : (o.paidOn || "")),
         uniq: f("uniq").value === "" ? "" : +f("uniq").value,
+        uniqReq: f("uniqReq").value.trim().replace(/^від\s*/i, "").replace(/\s*%$/, ""),
         received: f("received").value, deadline: f("deadline").value, submitted: f("submitted").value, status: f("status").value,
         revCount: +f("revCount").value || 0, revNote: f("revNote").value.trim(), notes: f("notes").value.trim(),
       };

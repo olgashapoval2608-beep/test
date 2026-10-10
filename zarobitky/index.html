@@ -281,11 +281,16 @@ tfoot td { font-weight: 600; border-bottom: 0; }
   const fmtDate = s => s ? parse(s).toLocaleDateString("uk-UA", { day: "numeric", month: "short" }) : "—";
   const monthKey = s => s ? s.slice(0, 7) : "";
   const left = o => Math.max(0, (+o.price || 0) - (+o.paid || 0));
+  const leftX = x => Math.max(0, (+x.amount || 0) - (+x.paid || 0));
   const daysTo = s => Math.round((parse(s) - parse(todayIso())) / 86400000);
   const monthName = (y, m) => { const t = new Date(y, m, 1).toLocaleDateString("uk-UA", { month: "long", year: "numeric" }); return t.charAt(0).toUpperCase() + t.slice(1); };
 
   const state = {
+    items: [],
     orders: [],
+    extras: [],
+    editExtra: null,
+    confirmX: null,
     tab: "orders",
     filterSrc: "all",
     filterStatus: "active",
@@ -309,11 +314,17 @@ tfoot td { font-weight: 600; border-bottom: 0; }
   function savedLabel() {
     return store.mode === "cloud" ? "Збережено в акаунті" : "Збережено на цьому пристрої";
   }
+  // Orders and "sums without works" (kind: "extra") live in one collection.
+  function split() {
+    state.orders = state.items.filter(o => o.kind !== "extra");
+    state.extras = state.items.filter(o => o.kind === "extra");
+  }
   function loadLocal() {
-    try { state.orders = JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { state.orders = []; }
+    try { state.items = JSON.parse(localStorage.getItem(LS_KEY) || "[]"); } catch { state.items = []; }
+    split();
   }
   function saveLocal() {
-    try { localStorage.setItem(LS_KEY, JSON.stringify(state.orders)); return true; } catch { return false; }
+    try { localStorage.setItem(LS_KEY, JSON.stringify(state.items)); return true; } catch { return false; }
   }
 
   async function initStore() {
@@ -325,7 +336,8 @@ tfoot td { font-weight: 600; border-bottom: 0; }
           store.mode = "cloud";
           store.col = db.collection("data/users/" + uid);
           store.col.onSnapshot(snap => {
-            state.orders = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+            state.items = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+            split();
             setSaveState(savedLabel());
             render();
           }, () => {
@@ -342,8 +354,9 @@ tfoot td { font-weight: 600; border-bottom: 0; }
   }
 
   async function persist(order) {
-    const i = state.orders.findIndex(o => o.id === order.id);
-    if (i >= 0) state.orders[i] = order; else state.orders.push(order);
+    const i = state.items.findIndex(o => o.id === order.id);
+    if (i >= 0) state.items[i] = order; else state.items.push(order);
+    split();
     render();
     if (store.mode === "cloud") {
       setSaveState("Зберігаю…", true);
@@ -355,7 +368,8 @@ tfoot td { font-weight: 600; border-bottom: 0; }
     }
   }
   async function remove(id) {
-    state.orders = state.orders.filter(o => o.id !== id);
+    state.items = state.items.filter(o => o.id !== id);
+    split();
     render();
     if (store.mode === "cloud") {
       try { await store.col.doc(id).delete(); } catch { toast("Не вдалося видалити. Спробуй ще раз.", true); }
@@ -420,7 +434,7 @@ tfoot td { font-weight: 600; border-bottom: 0; }
   function viewOrders() {
     const all = state.orders;
     const active = all.filter(o => o.status !== "done");
-    const debtTotal = all.reduce((s, o) => s + left(o), 0);
+    const debtTotal = all.reduce((s, o) => s + left(o), 0) + state.extras.reduce((s, x) => s + leftX(x), 0);
     const mk = monthKey(todayIso());
     const paidMonth = all.filter(o => monthKey(o.received) === mk).reduce((s, o) => s + (+o.paid || 0), 0);
     const near = active.filter(o => o.deadline && daysTo(o.deadline) <= 3).length;
@@ -534,16 +548,24 @@ tfoot td { font-weight: 600; border-bottom: 0; }
     const given = state.orders.filter(o => monthKey(o.received) === mk).sort((a, b) => (a.received || "").localeCompare(b.received || ""));
     const done = state.orders.filter(o => monthKey(o.submitted) === mk);
     const doneOfGiven = given.filter(o => o.status === "done").length;
-    const sum = given.reduce((s, o) => s + (+o.price || 0), 0);
-    const paid = given.reduce((s, o) => s + (+o.paid || 0), 0);
+    const xs = state.extras.filter(x => x.month === mk);
+    const oSum = given.reduce((s, o) => s + (+o.price || 0), 0);
+    const oPaid = given.reduce((s, o) => s + (+o.paid || 0), 0);
+    const sum = oSum + xs.reduce((s, x) => s + (+x.amount || 0), 0);
+    const paid = oPaid + xs.reduce((s, x) => s + (+x.paid || 0), 0);
     const owed = Math.max(0, sum - paid);
-    const allOwed = state.orders.reduce((s, o) => s + left(o), 0);
+    const allOwed = state.orders.reduce((s, o) => s + left(o), 0) + state.extras.reduce((s, x) => s + leftX(x), 0);
+    const allEarned = state.orders.reduce((s, o) => s + (+o.price || 0), 0) + state.extras.reduce((s, x) => s + (+x.amount || 0), 0);
+    const allPaid = state.orders.reduce((s, o) => s + (+o.paid || 0), 0) + state.extras.reduce((s, x) => s + (+x.paid || 0), 0);
     const paidPct = sum ? (paid / sum) * 100 : 0;
 
     const bySrc = SOURCES.map(s => {
       const g = given.filter(o => o.source === s.id);
-      return { s, n: g.length, sum: g.reduce((a, o) => a + (+o.price || 0), 0), paid: g.reduce((a, o) => a + (+o.paid || 0), 0) };
-    }).filter(r => r.n);
+      const gx = xs.filter(x => x.source === s.id);
+      return { s, n: g.length,
+        sum: g.reduce((a, o) => a + (+o.price || 0), 0) + gx.reduce((a, x) => a + (+x.amount || 0), 0),
+        paid: g.reduce((a, o) => a + (+o.paid || 0), 0) + gx.reduce((a, x) => a + (+x.paid || 0), 0) };
+    }).filter(r => r.n || r.sum);
     const maxSum = Math.max(1, ...bySrc.map(r => r.sum));
 
     const byType = {};
@@ -551,7 +573,8 @@ tfoot td { font-weight: 600; border-bottom: 0; }
 
     const debtors = SOURCES.map(s => {
       const os = state.orders.filter(o => o.source === s.id && left(o) > 0);
-      return { s, os, total: os.reduce((a, o) => a + left(o), 0) };
+      const ox = state.extras.filter(x => x.source === s.id && leftX(x) > 0);
+      return { s, os, ox, total: os.reduce((a, o) => a + left(o), 0) + ox.reduce((a, x) => a + leftX(x), 0) };
     }).filter(r => r.total > 0);
 
     const givenRows = given.map(o => `<tr class="clk" data-open="${o.id}">
@@ -580,32 +603,34 @@ tfoot td { font-weight: 600; border-bottom: 0; }
       </section>
       <section class="two">
         <div class="panel">
-          <h3>Гроші за замовлення цього місяця</h3>
+          <h3>Зароблено за місяць</h3>
           <div class="c-price num">${money(sum)} <span class="muted" style="font-size:13px;font-family:var(--font-body)">загалом</span></div>
           <div class="money-split" title="Оплачено ${Math.round(paidPct)}%"><i style="width:${paidPct}%"></i></div>
           <div class="ms-legend num"><span style="color:var(--green-d)">Оплачено ${money(paid)} (${Math.round(paidPct)}%)</span><span style="color:var(--pink-d)">Залишок ${money(owed)}</span></div>
           <div class="muted" style="font-size:13px">З робіт, що дали цього місяця, вже здано ${doneOfGiven} з ${given.length}. Борг за всі місяці разом: <b style="color:var(--pink-d)">${money(allOwed)}</b>.</div>
+          <div class="muted" style="font-size:13px">За весь час зароблено <b style="color:var(--ink)">${money(allEarned)}</b>, виплачено <b style="color:var(--green-d)">${money(allPaid)}</b>.</div>
         </div>
         <div class="panel">
           <h3>Звідки замовлення</h3>
-          ${bySrc.length ? `<div class="srcbar num">${bySrc.map(r => `<div class="row"><span>${esc(r.s.name)}</span><div class="track"><i style="width:${(r.sum / maxSum) * 100}%;background:${r.s.fg === "#ffffff" ? r.s.bg : r.s.fg}"></i></div><span style="text-align:right">${r.n} шт.</span></div>`).join("")}</div>
+          ${bySrc.length ? `<div class="srcbar num">${bySrc.map(r => `<div class="row"><span>${esc(r.s.name)}</span><div class="track"><i style="width:${(r.sum / maxSum) * 100}%;background:${r.s.fg === "#ffffff" ? r.s.bg : r.s.fg}"></i></div><span style="text-align:right">${r.n ? r.n + " шт." : "—"}</span></div>`).join("")}</div>
           <div class="tbl-wrap"><table class="num"><thead><tr><th>Джерело</th><th class="r">Сума</th><th class="r">Оплачено</th><th class="r">Винні</th></tr></thead><tbody>
           ${bySrc.map(r => `<tr><td>${esc(r.s.name)}</td><td class="r">${money(r.sum)}</td><td class="r">${money(r.paid)}</td><td class="r">${money(r.sum - r.paid)}</td></tr>`).join("")}
           </tbody></table></div>` : `<p class="muted">У цьому місяці замовлень ще немає.</p>`}
         </div>
       </section>
+      ${viewExtras(mk, xs)}
       <section class="panel">
         <h3>Які роботи давали (${given.length})</h3>
         ${Object.keys(byType).length ? `<div class="chips">${Object.entries(byType).sort((a, b) => b[1] - a[1]).map(([t, n]) => `<span class="pill st-done">${esc(t)}: ${n}</span>`).join("")}</div>` : ""}
         ${given.length ? `<div class="tbl-wrap"><table><thead><tr><th>Дали</th><th>Тема</th><th>Статус</th><th class="r">Ціна</th><th class="r">Оплачено</th><th class="r">Винні</th></tr></thead>
           <tbody>${givenRows}</tbody>
-          <tfoot class="num"><tr><td colspan="3">Разом</td><td class="r">${money(sum)}</td><td class="r">${money(paid)}</td><td class="r">${money(owed)}</td></tr></tfoot></table></div>`
+          <tfoot class="num"><tr><td colspan="3">Разом</td><td class="r">${money(oSum)}</td><td class="r">${money(oPaid)}</td><td class="r">${money(Math.max(0, oSum - oPaid))}</td></tr></tfoot></table></div>`
           : `<p class="muted">Дата «Коли дали» визначає місяць замовлення. Додай замовлення, і воно з'явиться тут.</p>`}
       </section>
       <section class="panel">
         <h3>Хто ще винен (за весь час)</h3>
         ${debtors.length ? `<div class="tbl-wrap"><table class="num"><thead><tr><th>Джерело</th><th>Замовлення</th><th class="r">Винні</th></tr></thead><tbody>
-          ${debtors.map(r => `<tr><td>${esc(r.s.name)}</td><td>${r.os.map(o => esc(o.orderNo ? "№ " + o.orderNo : (o.topic || "").slice(0, 30))).join(", ")}</td><td class="r" style="color:var(--pink-d)">${money(r.total)}</td></tr>`).join("")}
+          ${debtors.map(r => `<tr><td>${esc(r.s.name)}</td><td>${r.os.map(o => esc(o.orderNo ? "№ " + o.orderNo : (o.topic || "").slice(0, 30))).concat(r.ox.length ? ["без деталей: " + money(r.ox.reduce((a, x) => a + leftX(x), 0))] : []).join(", ")}</td><td class="r" style="color:var(--pink-d)">${money(r.total)}</td></tr>`).join("")}
           </tbody><tfoot><tr><td colspan="2">Разом</td><td class="r">${money(allOwed)}</td></tr></tfoot></table></div>` : `<p class="muted">Ніхто нічого не винен.</p>`}
       </section>
       <section class="panel backup">
@@ -614,6 +639,35 @@ tfoot td { font-weight: 600; border-bottom: 0; }
         <div class="inline-btns"><button class="btn sm" data-act="copyjson">Скопіювати всі дані</button></div>
         <textarea id="importBox" placeholder="Встав сюди скопійовані дані, щоб відновити їх"></textarea>
         <div class="inline-btns"><button class="btn sm soft-g" data-act="import">Відновити з тексту</button></div>
+      </section>`;
+  }
+
+  function viewExtras(mk, xs) {
+    const ed = state.extras.find(x => x.id === state.editExtra) || null;
+    const v = ed || { source: "pyshemo", amount: "", paid: "", note: "" };
+    const rows = xs.map(x => `<tr>
+        <td>${esc(srcById(x.source).name)}${x.note ? `<div class="muted" style="font-size:12px">${esc(x.note)}</div>` : ""}</td>
+        <td class="r num">${money(x.amount)}</td>
+        <td class="r num">${money(x.paid)}</td>
+        <td class="r num" style="color:${leftX(x) ? "var(--pink-d)" : "var(--green-d)"}">${money(leftX(x))}</td>
+        <td class="r">${state.confirmX === x.id
+          ? `<span class="confirm-del">Видалити? <button class="btn sm pink" data-act="xdelyes" data-id="${x.id}">Так</button><button class="btn sm" data-act="xdelno">Ні</button></span>`
+          : `<button class="btn sm" data-act="xedit" data-id="${x.id}">Змінити</button> <button class="btn sm ghost" style="color:var(--pink-d)" data-act="xdel" data-id="${x.id}">Видалити</button>`}</td>
+      </tr>`).join("");
+    return `<section class="panel">
+        <h3>Суми без робіт</h3>
+        <p class="muted" style="margin:0;font-size:13px">Гроші, які рахуються у звіті, але без окремого замовлення в списку. Наприклад, роботи, які ти не вносила.</p>
+        ${xs.length ? `<div class="tbl-wrap"><table><thead><tr><th>Джерело</th><th class="r">Сума</th><th class="r">Оплачено</th><th class="r">Винні</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : ""}
+        <div class="form">
+          <div class="field"><label for="x-source">Звідки</label><select id="x-source">${SOURCES.map(s => `<option value="${s.id}"${s.id === v.source ? " selected" : ""}>${esc(s.name)}</option>`).join("")}</select></div>
+          <div class="field"><label for="x-note">Коментар</label><input id="x-note" value="${esc(v.note)}" placeholder="напр. роботи, які не вносила"></div>
+          <div class="field"><label for="x-amount">Сума, грн</label><input id="x-amount" type="number" inputmode="decimal" min="0" value="${esc(v.amount)}"></div>
+          <div class="field"><label for="x-paid">Оплачено, грн</label><input id="x-paid" type="number" inputmode="decimal" min="0" value="${esc(v.paid)}"></div>
+        </div>
+        <div class="inline-btns">
+          <button class="btn sm soft-g" data-act="xsave">${ed ? "Зберегти зміни" : "Додати суму за цей місяць"}</button>
+          ${ed ? `<button class="btn sm" data-act="xcancel">Скасувати</button>` : ""}
+        </div>
       </section>`;
   }
 
@@ -734,8 +788,29 @@ tfoot td { font-weight: 600; border-bottom: 0; }
       if (act.dataset.act === "new") return openForm();
       if (act.dataset.act === "paidfull" && o) { persist({ ...o, paid: o.price }); toast("Позначено як оплачене"); return; }
       if (act.dataset.act === "submit" && o) { persist({ ...o, submitted: todayIso(), status: "done" }); toast("Позначено як здане"); return; }
+      if (act.dataset.act === "xsave") {
+        const amount = +document.getElementById("x-amount").value || 0;
+        if (!amount) { toast("Впиши суму", true); return; }
+        const base = state.extras.find(x => x.id === state.editExtra);
+        const x = {
+          id: base ? base.id : newId(), kind: "extra",
+          month: base ? base.month : `${state.repY}-${pad(state.repM + 1)}`,
+          source: document.getElementById("x-source").value, amount,
+          paid: +document.getElementById("x-paid").value || 0,
+          note: document.getElementById("x-note").value.trim(),
+          created: base ? base.created : new Date().toISOString(),
+        };
+        state.editExtra = null;
+        persist(x); toast(base ? "Збережено" : "Суму додано");
+        return;
+      }
+      if (act.dataset.act === "xedit") { state.editExtra = act.dataset.id; state.confirmX = null; return render(); }
+      if (act.dataset.act === "xcancel") { state.editExtra = null; return render(); }
+      if (act.dataset.act === "xdel") { state.confirmX = act.dataset.id; return render(); }
+      if (act.dataset.act === "xdelno") { state.confirmX = null; return render(); }
+      if (act.dataset.act === "xdelyes") { state.confirmX = null; if (state.editExtra === act.dataset.id) state.editExtra = null; remove(act.dataset.id); toast("Суму видалено"); return; }
       if (act.dataset.act === "copyjson") {
-        const text = JSON.stringify(state.orders);
+        const text = JSON.stringify(state.items);
         try { await navigator.clipboard.writeText(text); toast("Скопійовано"); }
         catch { const box = document.getElementById("importBox"); box.value = text; box.select(); toast("Виділено — скопіюй вручну"); }
         return;
@@ -746,7 +821,7 @@ tfoot td { font-weight: 600; border-bottom: 0; }
         if (!Array.isArray(data)) { toast("Текст не схожий на резервну копію", true); return; }
         let n = 0;
         for (const o of data) { if (o && typeof o === "object") { await persist({ ...o, id: o.id || newId() }); n++; } }
-        toast(`Відновлено замовлень: ${n}`);
+        toast(`Відновлено записів: ${n}`);
         return;
       }
     }

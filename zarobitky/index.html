@@ -280,7 +280,9 @@ tfoot td { font-weight: 600; border-bottom: 0; }
   const todayIso = () => iso(new Date());
   const fmtDate = s => s ? parse(s).toLocaleDateString("uk-UA", { day: "numeric", month: "short" }) : "—";
   const monthKey = s => s ? s.slice(0, 7) : "";
-  const left = o => Math.max(0, (+o.price || 0) - (+o.paid || 0));
+  // Total = base price + small extras (допи: a revision, a client's mistake).
+  const total = o => (+o.price || 0) + (+o.dop || 0);
+  const left = o => Math.max(0, total(o) - (+o.paid || 0));
   const leftX = x => Math.max(0, (+x.amount || 0) - (+x.paid || 0));
   const daysTo = s => Math.round((parse(s) - parse(todayIso())) / 86400000);
   const monthName = (y, m) => { const t = new Date(y, m, 1).toLocaleDateString("uk-UA", { month: "long", year: "numeric" }); return t.charAt(0).toUpperCase() + t.slice(1); };
@@ -405,7 +407,7 @@ tfoot td { font-weight: 600; border-bottom: 0; }
   }
   function card(o, withActions = true) {
     const l = left(o);
-    const pct = o.price ? Math.min(100, (o.paid / o.price) * 100) : 0;
+    const pct = total(o) ? Math.min(100, (o.paid / total(o)) * 100) : 0;
     const overdue = o.status !== "done" && o.deadline && daysTo(o.deadline) < 0;
     const actions = [];
     if (l > 0) actions.push(`<button class="btn sm soft-g" data-act="paidfull" data-id="${o.id}">Оплачено повністю</button>`);
@@ -422,7 +424,8 @@ tfoot td { font-weight: 600; border-bottom: 0; }
         </div>
       </div>
       <div class="c-money num">
-        <div class="c-price">${money(o.price)}</div>
+        <div class="c-price">${money(total(o))}</div>
+        ${+o.dop ? `<div class="muted" style="font-size:12px">${money(o.price)} + ${money(o.dop)} допи</div>` : ""}
         <div class="bar" title="Оплачено ${Math.round(pct)}%"><i style="width:${pct}%"></i></div>
         <div class="c-left ${l > 0 ? "debt" : "ok"}">${l > 0 ? `Винні ${money(l)}` : "Оплачено"}</div>
       </div>
@@ -549,13 +552,13 @@ tfoot td { font-weight: 600; border-bottom: 0; }
     const done = state.orders.filter(o => monthKey(o.submitted) === mk);
     const doneOfGiven = given.filter(o => o.status === "done").length;
     const xs = state.extras.filter(x => x.month === mk);
-    const oSum = given.reduce((s, o) => s + (+o.price || 0), 0);
+    const oSum = given.reduce((s, o) => s + total(o), 0);
     const oPaid = given.reduce((s, o) => s + (+o.paid || 0), 0);
     const sum = oSum + xs.reduce((s, x) => s + (+x.amount || 0), 0);
     const paid = oPaid + xs.reduce((s, x) => s + (+x.paid || 0), 0);
     const owed = Math.max(0, sum - paid);
     const allOwed = state.orders.reduce((s, o) => s + left(o), 0) + state.extras.reduce((s, x) => s + leftX(x), 0);
-    const allEarned = state.orders.reduce((s, o) => s + (+o.price || 0), 0) + state.extras.reduce((s, x) => s + (+x.amount || 0), 0);
+    const allEarned = state.orders.reduce((s, o) => s + total(o), 0) + state.extras.reduce((s, x) => s + (+x.amount || 0), 0);
     const allPaid = state.orders.reduce((s, o) => s + (+o.paid || 0), 0) + state.extras.reduce((s, x) => s + (+x.paid || 0), 0);
     const paidPct = sum ? (paid / sum) * 100 : 0;
 
@@ -563,7 +566,7 @@ tfoot td { font-weight: 600; border-bottom: 0; }
       const g = given.filter(o => o.source === s.id);
       const gx = xs.filter(x => x.source === s.id);
       return { s, n: g.length,
-        sum: g.reduce((a, o) => a + (+o.price || 0), 0) + gx.reduce((a, x) => a + (+x.amount || 0), 0),
+        sum: g.reduce((a, o) => a + total(o), 0) + gx.reduce((a, x) => a + (+x.amount || 0), 0),
         paid: g.reduce((a, o) => a + (+o.paid || 0), 0) + gx.reduce((a, x) => a + (+x.paid || 0), 0) };
     }).filter(r => r.n || r.sum);
     const maxSum = Math.max(1, ...bySrc.map(r => r.sum));
@@ -581,7 +584,7 @@ tfoot td { font-weight: 600; border-bottom: 0; }
         <td class="num">${fmtDate(o.received)}</td>
         <td>${esc(o.topic || "Без теми")}<div class="muted" style="font-size:12px">${esc(srcById(o.source).name)}${o.orderNo ? " · № " + esc(o.orderNo) : ""}${o.type ? " · " + esc(o.type) : ""}</div></td>
         <td>${statusPill(o)}</td>
-        <td class="r num">${money(o.price)}</td>
+        <td class="r num">${money(total(o))}</td>
         <td class="r num">${money(o.paid)}</td>
         <td class="r num" style="color:${left(o) ? "var(--pink-d)" : "var(--green-d)"}">${money(left(o))}</td>
       </tr>`).join("");
@@ -702,6 +705,7 @@ tfoot td { font-weight: 600; border-bottom: 0; }
 
             <div class="fsec">Оплата</div>
             <div class="field"><label for="f-price">Ціна, грн</label><input id="f-price" type="number" inputmode="decimal" min="0" step="1" value="${esc(o.price)}"></div>
+            <div class="field"><label for="f-dop">Допи, грн</label><input id="f-dop" type="number" inputmode="decimal" min="0" step="1" value="${esc(o.dop || "")}" placeholder="за правку, якщо клієнт помилився"></div>
             <div class="field"><label for="f-paid">Скільки оплатили, грн</label><input id="f-paid" type="number" inputmode="decimal" min="0" step="1" value="${esc(o.paid)}"></div>
             <div class="field"><label>Ще мають оплатити</label><div class="calc num" id="f-left"></div></div>
             <div class="field"><label>Швидко</label><div class="inline-btns">
@@ -734,16 +738,17 @@ tfoot td { font-weight: 600; border-bottom: 0; }
       </div>`;
     const f = id => document.getElementById("f-" + id);
     const upd = () => {
-      const l = Math.max(0, (+f("price").value || 0) - (+f("paid").value || 0));
+      const l = Math.max(0, (+f("price").value || 0) + (+f("dop").value || 0) - (+f("paid").value || 0));
       f("left").textContent = l > 0 ? money(l) : "Нічого";
       f("left").classList.toggle("debt", l > 0);
     };
     upd();
     f("price").addEventListener("input", upd);
+    f("dop").addEventListener("input", upd);
     f("paid").addEventListener("input", upd);
     f("submitted").addEventListener("change", () => { if (f("submitted").value && f("status").value === "work") f("status").value = "done"; });
     document.querySelectorAll("[data-pay]").forEach(b => b.addEventListener("click", () => {
-      f("paid").value = Math.round((+f("price").value || 0) * (+b.dataset.pay) / 100); upd();
+      f("paid").value = Math.round(((+f("price").value || 0) + (+f("dop").value || 0)) * (+b.dataset.pay) / 100); upd();
     }));
     document.getElementById("revPlus").addEventListener("click", () => { f("revCount").value = (+f("revCount").value || 0) + 1; f("status").value = "rev"; });
     const close = () => (document.getElementById("modalRoot").innerHTML = "");
@@ -761,7 +766,7 @@ tfoot td { font-weight: 600; border-bottom: 0; }
       const next = {
         id: o.id, created: o.created || new Date().toISOString(),
         source: f("source").value, orderNo: f("orderNo").value.trim(), topic: f("topic").value.trim(), type: f("type").value,
-        price: +f("price").value || 0, paid: +f("paid").value || 0, payNote: f("payNote").value.trim(),
+        price: +f("price").value || 0, dop: +f("dop").value || 0, paid: +f("paid").value || 0, payNote: f("payNote").value.trim(),
         uniq: f("uniq").value === "" ? "" : +f("uniq").value,
         received: f("received").value, deadline: f("deadline").value, submitted: f("submitted").value, status: f("status").value,
         revCount: +f("revCount").value || 0, revNote: f("revNote").value.trim(), notes: f("notes").value.trim(),
@@ -786,7 +791,7 @@ tfoot td { font-weight: 600; border-bottom: 0; }
       e.stopPropagation();
       const o = state.orders.find(x => x.id === act.dataset.id);
       if (act.dataset.act === "new") return openForm();
-      if (act.dataset.act === "paidfull" && o) { persist({ ...o, paid: o.price }); toast("Позначено як оплачене"); return; }
+      if (act.dataset.act === "paidfull" && o) { persist({ ...o, paid: total(o) }); toast("Позначено як оплачене"); return; }
       if (act.dataset.act === "submit" && o) { persist({ ...o, submitted: todayIso(), status: "done" }); toast("Позначено як здане"); return; }
       if (act.dataset.act === "xsave") {
         const amount = +document.getElementById("x-amount").value || 0;

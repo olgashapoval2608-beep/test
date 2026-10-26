@@ -42,7 +42,7 @@ SELECT kod, punkt, vidstan
 FROM transport.reysy
 WHERE punkt LIKE '%ів';
 
--- 2.4 Водії, у прізвищі яких друга літера «е» (символ _ — один будь-який символ)
+-- 2.4 Водії, у прізвищі яких друга літера «е» (символ _ означає один будь-який символ)
 SELECT prizvyshche, imya
 FROM transport.vodii
 WHERE prizvyshche LIKE '_е%';

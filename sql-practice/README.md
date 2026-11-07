@@ -15,3 +15,10 @@
 - `01_transport_db.sql` - створення бази `transport` і заповнення таблиць
 - `02_transport_queries.sql` - запити завдань 1–4
 - `screenshots/` - скріншоти
+
+## Робота 3. Лабораторна робота «Збережені процедури і функції»
+Папка [`robota3_procedury`](robota3_procedury):
+- `Лабораторна_робота_Процедури_і_функції.docx` - звіт з усіма запитами та скріншотами
+- `01_avto_db.sql` - створення бази `avto` (таблиці transport, dvyguny, postachalnyky)
+- `02_procedury_funktsii.sql` - представлення, процедури та функції
+- `screenshots/` - скріншоти

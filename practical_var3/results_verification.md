@@ -58,6 +58,17 @@
 10	10	Pin        	Wiring
 21	21	NOR Gate   	Gates
  2	 2	T Flip-Flop	Memory
-33	33	TOTAL (without project?s sub circuits)
+33	33	TOTAL (without project’s sub circuits)
 33	33	TOTAL (with sub circuits)
+```
+
+## 4. Тест-вектор Logisim (test_vector_var3.txt, 26 кроків: скидання + 12 тактів)
+
+Команда: `java -jar logisim-evolution-5.0.0-all.jar -w avtomat_var3 test_vector_var3.txt avtomat_var3.circ`
+
+```
+Loading test vector “test_vector_var3.txt”…
+Running 26 vectors…
+1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 
+Passed: 26, Failed: 0
 ```
